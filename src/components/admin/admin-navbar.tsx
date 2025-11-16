@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { 
   Menu, X, Home, FileText, Calendar, Users, Settings, 
   LogOut, ChevronDown, ChevronRight, LayoutDashboard, Image as ImageIcon,
-  Terminal, Smartphone, Mail, Bell, Zap
+  Terminal, Smartphone, Mail, Bell, Zap, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -71,6 +71,11 @@ export function AdminNavbar({ children }: { children: React.ReactNode }) {
       label: 'Öffnungszeiten Einstellungen', 
       path: '/routes/admin/opening-hours', 
       icon: <Settings className="w-5 h-5" /> 
+    },
+    { 
+      label: 'Maintenance Mode', 
+      path: '/routes/admin/maintenance', 
+      icon: <AlertTriangle className="w-5 h-5 text-red-500" /> 
     },
   ];
 
