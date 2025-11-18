@@ -197,7 +197,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const signInWithGoogleProvider = async () => {
     try {
-      const result = await signInWithGoogle();
+      const result = await signInWithGoogle() as any;
+      
+      // If redirect flow is used, result will be null and user will be redirected
+      if (result === null) {
+        console.log('Google sign-in redirect initiated');
+        return;
+      }
+      
       const fbUser = result?.user;
       
       // If this is their first Google sign-in, createOrUpdateUser will handle it

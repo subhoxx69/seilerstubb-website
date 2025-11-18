@@ -47,6 +47,25 @@ if (typeof window !== 'undefined') {
       console.log('🌐 Current Domain:', hostname);
     })
     .catch((error) => console.error('❌ Persistence error:', error));
+  
+  // Handle redirect result immediately on app load (critical for mobile)
+  (async () => {
+    try {
+      const { getRedirectResult } = await import('firebase/auth');
+      const result = await getRedirectResult(auth);
+      
+      if (result && result.user) {
+        console.log('🎉 [CRITICAL] Redirect result caught in config.ts - User:', result.user.email);
+        // Store in sessionStorage so pages know auth happened
+        sessionStorage.setItem('auth_redirect_processed', 'true');
+        sessionStorage.setItem('redirected_user_email', result.user.email || '');
+      }
+    } catch (error: any) {
+      if (error.code !== 'auth/no-auth-event') {
+        console.warn('Redirect result check in config:', error.code);
+      }
+    }
+  })();
 }
 
 // Initialize Analytics conditionally (browser only)
@@ -80,13 +99,6 @@ export const signInWithGoogle = async () => {
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     console.log(`Device: ${isMobile ? '📱 Mobile' : '🖥️ Desktop'}`);
     
-    // For localhost and local IPs, ALWAYS use popup (most reliable for development)
-    const isLocalhost = window.location.hostname === 'localhost' || 
-                        window.location.hostname === '127.0.0.1' ||
-                        window.location.hostname.startsWith('192.168.');
-    
-    console.log(`Localhost/Local IP: ${isLocalhost}`);
-    
     // Store the current page so we return to it after auth (works for all flows)
     const redirectUrl = window.location.href;
     const currentPathname = window.location.pathname;
@@ -95,69 +107,30 @@ export const signInWithGoogle = async () => {
     console.log('💾 Stored redirect URL:', redirectUrl);
     console.log('💾 Stored return path:', currentPathname);
     
-    // Clear any previous auth attempt
-    sessionStorage.removeItem('google_signin_in_progress');
-    
-    // Mark that we're starting auth
+    // Mark that we're starting auth - MUST be set before redirect
     sessionStorage.setItem('google_signin_in_progress', 'true');
     
-    // ALWAYS use redirect flow for production to ensure proper OAuth flow
-    // Popup has issues on mobile, especially iOS Safari
-    const isProduction = window.location.hostname === 'www.seilerstubb.com' || 
-                        window.location.hostname === 'seilerstubb.com';
+    // ALWAYS use redirect flow for all cases - it's more reliable
+    // especially on mobile where popups often get blocked
+    console.log('🔄 Using REDIRECT flow for Google OAuth');
+    console.log('🌐 Auth origin:', window.location.origin);
     
-    if (isProduction || isMobile || isLocalhost) {
-      // For production OR mobile OR localhost: Use REDIRECT flow
-      // This is more reliable for mobile browsers and ensures proper OAuth handling
-      console.log('🔄 Using REDIRECT flow for proper OAuth handling');
-      
-      // Configure provider for redirect
-      googleProvider.setCustomParameters({
-        prompt: 'select_account',
-        redirect_uri: window.location.origin + '/auth/signin' // Explicit redirect target
-      });
-      
-      console.log('🌐 Initiating redirect to Google OAuth...');
-      console.log('🎯 Auth origin:', window.location.origin);
-      
-      await signInWithRedirect(auth, googleProvider);
-      console.log('⏳ Redirect initiated - page will redirect to Google');
-      return null; // Never reached, page will redirect
-    } else {
-      // Only use popup for very specific desktop cases
-      console.log('🔄 Using popup flow (desktop non-production)');
-      try {
-        const result = await signInWithPopup(auth, googleProvider);
-        console.log('✅ Popup sign-in successful:', result.user.email);
-        return result;
-      } catch (popupError: any) {
-        console.warn('⚠️ Popup failed:', popupError.code);
-        // Fallback to redirect
-        console.log('📍 Falling back to redirect flow...');
-        sessionStorage.setItem('google_signin_in_progress', 'true');
-        await signInWithRedirect(auth, googleProvider);
-        return null;
-      }
-    }
+    // Configure provider
+    googleProvider.setCustomParameters({
+      prompt: 'select_account',
+    });
+    
+    // Initiate redirect - page will redirect to Google
+    await signInWithRedirect(auth, googleProvider);
+    console.log('⏳ Redirect initiated - browser redirecting to Google');
+    return null; // Never reached - page redirects
+    
   } catch (error: any) {
     console.error('❌ Google sign-in error:', error);
     console.error('Error code:', error.code);
     console.error('Error message:', error.message);
-    console.error('Full error:', error);
     
     // Handle specific errors
-    if (error.code === 'auth/popup-blocked') {
-      console.log('Popup blocked, using redirect flow');
-      try {
-        sessionStorage.setItem('google_signin_in_progress', 'true');
-        await signInWithRedirect(auth, googleProvider);
-        return null;
-      } catch (redirectError) {
-        console.error('Redirect sign-in also failed:', redirectError);
-        throw redirectError;
-      }
-    }
-    
     if (error.code === 'auth/unauthorized-domain') {
       console.error('⚠️ UNAUTHORIZED DOMAIN ERROR ⚠️');
       console.error('Current domain:', window.location.hostname);

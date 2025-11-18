@@ -314,10 +314,23 @@ function SignUpContent() {
     try {
       setState((prev) => ({ ...prev, isLoading: true, signUpMessage: null }));
 
-      // Initiate Google Sign-In
-      const result = await signInWithGoogle();
+      // Initiate Google Sign-In (returns null on redirect, or {user: ...})
+      const result = await signInWithGoogle() as any;
 
-      if (!result || !result.user) {
+      if (result === null) {
+        // Redirect flow initiated - user will be redirected back here
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          signUpMessage: {
+            type: 'success',
+            message: 'Redirecting to Google... please complete sign-in',
+          },
+        }));
+        return;
+      }
+
+      if (!result?.user) {
         setState((prev) => ({
           ...prev,
           isLoading: false,

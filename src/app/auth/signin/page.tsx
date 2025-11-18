@@ -47,40 +47,55 @@ function SignInContent() {
   useEffect(() => {
     let isMounted = true;
     
-    const checkAuthState = async () => {
+    const handleGoogleRedirect = async () => {
       try {
-        // Wait a moment for auth context to process redirect result
-        await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('🔍 Sign-In Page: Checking for redirect result...');
         
-        if (!isMounted) return;
+        // Check if we were redirected from Google
+        const authRedirectProcessed = sessionStorage.getItem('auth_redirect_processed');
+        const redirectedEmail = sessionStorage.getItem('redirected_user_email');
         
-        // Check current Firebase auth state
-        const { auth } = await import('@/lib/firebase/config');
-        const currentUser = auth.currentUser;
-        
-        console.log('🔍 Sign-In Page: Checking current auth state...');
-        console.log('Current user:', currentUser?.email);
-        
-        if (currentUser) {
-          // User is authenticated - wait for context to update then redirect
-          console.log('✅ User is authenticated, waiting for context update...');
+        if (authRedirectProcessed) {
+          console.log('✅ Google redirect was processed, email:', redirectedEmail);
+          sessionStorage.removeItem('auth_redirect_processed');
+          sessionStorage.removeItem('redirected_user_email');
           
-          // Wait for context to catch up
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // User is being authenticated - wait for auth state to settle
+          // Try to detect auth state with retries
+          let attempts = 0;
+          const maxAttempts = 20; // 10 seconds with 500ms intervals
           
-          if (isMounted) {
-            console.log('🔄 Redirecting authenticated user to:', redirect);
-            router.push(redirect);
+          while (attempts < maxAttempts && isMounted) {
+            const currentUser = auth.currentUser;
+            
+            if (currentUser) {
+              console.log('✅ Auth detected:', currentUser.email);
+              console.log('📍 Redirecting to:', redirect);
+              
+              // Small delay to ensure UI updates
+              await new Promise(resolve => setTimeout(resolve, 300));
+              
+              if (isMounted) {
+                router.push(redirect);
+                return;
+              }
+            }
+            
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 500));
           }
-        } else {
-          console.log('✓ Not authenticated - showing signin form');
-          setState((prev) => ({
-            ...prev,
-            isProcessingRedirect: false,
-          }));
+          
+          console.warn('⚠️ Auth state not detected after retries');
         }
+        
+        // Not from redirect or timeout - show signin form
+        setState((prev) => ({
+          ...prev,
+          isProcessingRedirect: false,
+        }));
+        
       } catch (error: any) {
-        console.error('❌ Error checking auth state:', error);
+        console.error('❌ Error in redirect handler:', error);
         if (isMounted) {
           setState((prev) => ({
             ...prev,
@@ -90,7 +105,7 @@ function SignInContent() {
       }
     };
 
-    checkAuthState();
+    handleGoogleRedirect();
     
     return () => {
       isMounted = false;
