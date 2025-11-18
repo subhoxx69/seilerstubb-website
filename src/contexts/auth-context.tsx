@@ -46,166 +46,115 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Handle Google Sign-In redirect result FIRST
-    let handleRedirectDone = false;
+    console.log('🔐 Auth Context: Initializing...');
     
-    const handleRedirectResult = async () => {
+    let unsubscribe: (() => void) | null = null;
+    let setupComplete = false;
+    
+    const setupAuth = async () => {
       try {
-        console.log('🔍 Auth Context: Checking for redirect result...');
-        
-        // Check if we're returning from Google Sign-In
-        const isGoogleSignInInProgress = sessionStorage.getItem('google_signin_in_progress');
-        console.log('Google sign-in in progress flag:', isGoogleSignInInProgress);
-        
-        if (isGoogleSignInInProgress) {
-          console.log('✅ Google sign-in redirect detected, processing...');
-          sessionStorage.removeItem('google_signin_in_progress');
-        }
+        // Step 1: Handle any pending redirect result FIRST
+        console.log('📍 Step 1: Checking for redirect result from Google OAuth...');
         
         const { getRedirectResult } = await import('firebase/auth');
         
-        // Add timeout to prevent hanging on redirect result
-        const timeoutPromise = new Promise<null>((resolve) => {
-          setTimeout(() => {
-            console.warn('⚠️ getRedirectResult timeout - no result available');
-            resolve(null);
-          }, 5000); // 5 second timeout
-        });
-
-        const result = await Promise.race([
-          getRedirectResult(auth),
-          timeoutPromise
-        ]) as any;
-        
-        if (result && result.user) {
-          const fbUser = result.user;
-          console.log('✓ Auth Context: Google redirect sign-in detected:', fbUser.email);
-          console.log('✓ Auth Context: User UID:', fbUser.uid);
-          console.log('✓ Auth Context: Display Name:', fbUser.displayName);
+        try {
+          const redirectResult = await getRedirectResult(auth);
           
-          // Create or update user in database
-          try {
-            await createOrUpdateUser(fbUser.uid, {
-              email: fbUser.email || '',
-              displayName: fbUser.displayName || undefined,
-              photoURL: fbUser.photoURL || undefined,
-              phoneNumber: fbUser.phoneNumber || undefined,
-            });
-            console.log('✓ Auth Context: User data created/updated from redirect');
-          } catch (dbError) {
-            console.error('⚠️ Auth Context: Error updating user in database:', dbError);
-            // Continue anyway - user is authenticated even if DB update failed
-          }
-          
-          // Get stored redirect URL and return path
-          const redirectUrl = sessionStorage.getItem('google_signin_redirect_url');
-          const returnPath = sessionStorage.getItem('google_signin_return_path');
-          
-          console.log('📍 Stored redirect URL:', redirectUrl);
-          console.log('📍 Stored return path:', returnPath);
-          
-          // Clear stored URLs
-          sessionStorage.removeItem('google_signin_redirect_url');
-          sessionStorage.removeItem('google_signin_return_path');
-          
-          // Redirect back to original page or home
-          let destinationUrl = '/';
-          
-          if (returnPath && returnPath !== '/auth/signin') {
-            // User came from somewhere other than signin page - redirect back there
-            destinationUrl = returnPath;
-            console.log('🎯 Redirecting to original page:', destinationUrl);
-          } else if (redirectUrl) {
-            // Use the full stored URL
-            try {
-              const urlObj = new URL(redirectUrl);
-              destinationUrl = urlObj.pathname + urlObj.search;
-              console.log('🎯 Redirecting to stored URL:', destinationUrl);
-            } catch (e) {
-              console.warn('Invalid redirect URL, using home:', redirectUrl);
-            }
-          }
-          
-          // Use a small delay to ensure state is updated, then redirect
-          setTimeout(() => {
-            console.log('➡️ Performing redirect to:', destinationUrl);
-            window.location.href = destinationUrl;
-          }, 500);
-          
-        } else {
-          console.log('✓ Auth Context: No redirect result (user came to page normally)');
-        }
-      } catch (error: any) {
-        if (error.code !== 'auth/no-auth-event') {
-          console.error('⚠️ Error handling redirect result:', error.code, error.message);
-        }
-      } finally {
-        handleRedirectDone = true;
-      }
-    };
-
-    // Set up the auth state listener
-    let unsubscribe: (() => void) | null = null;
-    
-    const setupAuthListener = async () => {
-      // Wait for redirect handling to complete
-      while (!handleRedirectDone) {
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      
-      console.log('🔐 Auth Context: Setting up auth state listener...');
-      
-      // Now set up the listener
-      unsubscribe = auth.onAuthStateChanged(async (fbUser) => {
-        console.log('🔄 Auth State Changed:', fbUser ? `✅ User: ${fbUser.email}` : '❌ Not authenticated');
-        
-        setFirebaseUser(fbUser);
-        
-        if (fbUser) {
-          try {
-            console.log('📋 Auth Context: Fetching user data from Firestore...');
-            const userData = await getUser(fbUser.uid);
+          if (redirectResult && redirectResult.user) {
+            const fbUser = redirectResult.user;
+            console.log('✅ Redirect result found - user authenticated:', fbUser.email);
+            console.log('   UID:', fbUser.uid);
             
-            if (userData) {
-              console.log('✅ Auth Context: User data found in Firestore');
-              setUser(userData);
-            } else {
-              console.log('📝 Auth Context: No user data found, creating new user...');
-              // Create a user document if it doesn't exist
-              const newUser = await createNewUser(
-                fbUser.uid,
-                fbUser.email || '',
-                fbUser.displayName,
-                fbUser.phoneNumber,
-                fbUser.photoURL
-              );
-              console.log('✅ Auth Context: New user created:', newUser);
-              setUser(newUser);
+            // Create or update user in database immediately
+            try {
+              await createOrUpdateUser(fbUser.uid, {
+                email: fbUser.email || '',
+                displayName: fbUser.displayName || undefined,
+                photoURL: fbUser.photoURL || undefined,
+                phoneNumber: fbUser.phoneNumber || undefined,
+              });
+              console.log('✅ User data synced to Firestore');
+            } catch (dbError) {
+              console.error('⚠️ Error syncing user to Firestore:', dbError);
+              // Continue - Firebase auth is still valid
             }
-
-            // Record user login (IP address, timestamp)
-            console.log('📊 Auth Context: Recording user login...');
-            await recordUserLogin(fbUser.uid);
-          } catch (error) {
-            console.error('❌ Error fetching/creating user data:', error);
+            
+            // Clear the in-progress flag
+            sessionStorage.removeItem('google_signin_in_progress');
+            sessionStorage.removeItem('google_signin_redirect_url');
+            sessionStorage.removeItem('google_signin_return_path');
+            
+            console.log('✅ Redirect result processed successfully');
+          } else {
+            console.log('✓ No redirect result - user accessed normally');
+          }
+        } catch (redirectError: any) {
+          // This is expected if there's no redirect result
+          if (redirectError.code !== 'auth/no-auth-event') {
+            console.warn('⚠️ Redirect result error (expected if not returning from OAuth):', redirectError.code);
+          }
+        }
+        
+        // Step 2: Set up the auth state listener
+        console.log('� Step 2: Setting up auth state listener...');
+        
+        unsubscribe = auth.onAuthStateChanged(async (fbUser) => {
+          console.log('🔄 Auth state changed:', fbUser ? `✅ ${fbUser.email}` : '❌ No user');
+          
+          setFirebaseUser(fbUser);
+          
+          if (fbUser) {
+            try {
+              console.log('📋 Fetching user data from Firestore...');
+              const userData = await getUser(fbUser.uid);
+              
+              if (userData) {
+                console.log('✅ User found in Firestore:', userData.email);
+                setUser(userData);
+              } else {
+                console.log('📝 User not in Firestore, creating new user...');
+                const newUser = await createNewUser(
+                  fbUser.uid,
+                  fbUser.email || '',
+                  fbUser.displayName,
+                  fbUser.phoneNumber,
+                  fbUser.photoURL
+                );
+                console.log('✅ New user created');
+                setUser(newUser);
+              }
+              
+              // Record login
+              console.log('📊 Recording user login...');
+              await recordUserLogin(fbUser.uid);
+              
+            } catch (error) {
+              console.error('❌ Error with user data:', error);
+              setUser(null);
+            }
+          } else {
+            console.log('🚪 User logged out');
             setUser(null);
           }
-        } else {
-          console.log('🚪 Auth Context: User logged out');
-          setUser(null);
-        }
+          
+          console.log('✅ Auth loading complete');
+          setIsLoading(false);
+          setupComplete = true;
+        });
         
-        console.log('✅ Auth Context: Loading complete');
+      } catch (error) {
+        console.error('❌ Auth setup error:', error);
         setIsLoading(false);
-      });
+        setupComplete = true;
+      }
     };
 
-    // Start both processes
-    handleRedirectResult();
-    setupAuthListener();
+    setupAuth();
 
     return () => {
       if (unsubscribe) {
+        console.log('🧹 Cleaning up auth listener');
         unsubscribe();
       }
     };

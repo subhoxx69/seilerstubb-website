@@ -47,82 +47,50 @@ function SignInContent() {
   useEffect(() => {
     let isMounted = true;
     
-    const handleRedirectResult = async () => {
+    const checkAuthState = async () => {
       try {
-        console.log('🔍 Sign-In Page: Checking for redirect result...');
+        // Wait a moment for auth context to process redirect result
+        await new Promise(resolve => setTimeout(resolve, 500));
         
-        const isGoogleSignInInProgress = sessionStorage.getItem('google_signin_in_progress');
-        console.log('Google sign-in in progress flag:', isGoogleSignInInProgress);
+        if (!isMounted) return;
         
-        if (isGoogleSignInInProgress) {
-          console.log('✅ Returning from Google Sign-In...');
-          sessionStorage.removeItem('google_signin_in_progress');
-          
-          // Mark that we need to wait for auth state change
-          sessionStorage.setItem('waiting_for_auth_state', 'true');
-        }
-        
-        const { getRedirectResult } = await import('firebase/auth');
+        // Check current Firebase auth state
         const { auth } = await import('@/lib/firebase/config');
-
-        // Add timeout to prevent hanging
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => {
-            console.warn('⚠️ Redirect result check timeout');
-            reject(new Error('Redirect check timeout'));
-          }, 5000)
-        );
-
-        const result = await Promise.race([
-          getRedirectResult(auth),
-          timeoutPromise
-        ]);
-
-        if (isMounted) {
-          if (result && (result as any).user) {
-            const user = (result as any).user;
-            console.log('✓ Sign-In Page: Redirect sign-in successful:', user.email);
-            console.log('✓ User UID:', user.uid);
-            
-            setState((prev) => ({
-              ...prev,
-              signInMessage: { type: 'success', message: '✓ Signed in with Google! Redirecting...' },
-              isProcessingRedirect: false,
-            }));
-            setTimeout(() => {
-              console.log('🔄 Redirecting to:', redirect);
-              router.push(redirect);
-            }, 1500);
-          } else {
-            console.log('✓ Sign-In Page: No redirect result (user came to page normally)');
-            setState((prev) => ({
-              ...prev,
-              isProcessingRedirect: false,
-            }));
+        const currentUser = auth.currentUser;
+        
+        console.log('🔍 Sign-In Page: Checking current auth state...');
+        console.log('Current user:', currentUser?.email);
+        
+        if (currentUser) {
+          // User is authenticated - wait for context to update then redirect
+          console.log('✅ User is authenticated, waiting for context update...');
+          
+          // Wait for context to catch up
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          if (isMounted) {
+            console.log('🔄 Redirecting authenticated user to:', redirect);
+            router.push(redirect);
           }
+        } else {
+          console.log('✓ Not authenticated - showing signin form');
+          setState((prev) => ({
+            ...prev,
+            isProcessingRedirect: false,
+          }));
         }
       } catch (error: any) {
-        console.error('❌ Error handling redirect result:', error);
+        console.error('❌ Error checking auth state:', error);
         if (isMounted) {
-          // If it's a timeout or no-auth-event, just continue (user came to page normally)
-          if (error.code !== 'auth/no-auth-event' && error.message !== 'Redirect check timeout') {
-            console.error('⚠️ Redirect error details:', error.code, error.message);
-            setState((prev) => ({
-              ...prev,
-              signInMessage: { type: 'error', message: error.message || 'Sign in failed' },
-              isProcessingRedirect: false,
-            }));
-          } else {
-            setState((prev) => ({
-              ...prev,
-              isProcessingRedirect: false,
-            }));
-          }
+          setState((prev) => ({
+            ...prev,
+            isProcessingRedirect: false,
+          }));
         }
       }
     };
 
-    handleRedirectResult();
+    checkAuthState();
     
     return () => {
       isMounted = false;
