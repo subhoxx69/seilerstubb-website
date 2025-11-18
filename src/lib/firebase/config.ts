@@ -10,7 +10,9 @@ import {
   PhoneAuthProvider,
   RecaptchaVerifier,
   signInWithPhoneNumber as signInWithPhoneNum,
-  signInWithCredential
+  signInWithCredential,
+  setPersistence,
+  browserLocalPersistence
 } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
@@ -32,6 +34,20 @@ const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
+
+// Set persistence to LOCAL for all platforms (browser only)
+if (typeof window !== 'undefined') {
+  setPersistence(auth, browserLocalPersistence)
+    .then(() => {
+      console.log('✅ Firebase persistence set to LOCAL');
+      // Log current auth domain for debugging
+      const authDomain = firebaseConfig.authDomain;
+      const hostname = window.location.hostname;
+      console.log('🔐 Firebase Auth Domain:', authDomain);
+      console.log('🌐 Current Domain:', hostname);
+    })
+    .catch((error) => console.error('❌ Persistence error:', error));
+}
 
 // Initialize Analytics conditionally (browser only)
 export const initializeAnalytics = async () => {
@@ -71,7 +87,7 @@ export const signInWithGoogle = async () => {
     console.log(`Localhost/Local IP: ${isLocalhost}`);
     
     if (!isLocalhost && isMobile) {
-      // 📱 MOBILE PRODUCTION: Use redirect flow
+      // 📱 MOBILE PRODUCTION: Use redirect flow (most reliable for mobile)
       console.log('📱 Production mobile - using redirect flow');
       
       // Store the current page so we return to it after auth
@@ -135,10 +151,7 @@ export const signInWithGoogle = async () => {
         `2. Select project "seilerstubb-6731f"\n` +
         `3. Go to Authentication → Settings\n` +
         `4. Scroll to "Authorized domains"\n` +
-        `5. Click "Add domain"\n` +
-        `6. Add BOTH:\n` +
-        `   • localhost:3000\n` +
-        `   • 192.168.0.113:3000\n\n` +
+        `5. Add domain: ${window.location.hostname}\n\n` +
         `After adding, refresh this page!`
       );
     }
