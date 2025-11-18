@@ -9,6 +9,8 @@ import PageLoader from '@/components/layout/page-loader';
 import { ConditionalLayout } from '@/components/layout/conditional-layout';
 import { ConditionalFooter } from '@/components/layout/conditional-footer';
 import CookieConsent from '@/components/shared/cookie-consent';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const dynamic = 'force-dynamic';
 
@@ -141,6 +143,8 @@ export default function RootLayout({
           <ConditionalFooter excludeRoutes={['/routes/admin', '/menu', '/reservation', '/gallery', '/contact', '/routes/user']} />
           <CookieConsent />
           <Toaster />
+          <Analytics />
+          <SpeedInsights />
         </Providers>
       </body>
     </html>
