@@ -24,8 +24,14 @@ export async function updateReservationStatus(
       tokenLength: idToken?.length || 0,
     });
 
-    // Use relative URL for server actions (works on both client and server)
-    const url = `/api/admin/reservation-update`;
+    // Build proper URL - use next/headers to get the request URL if available
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!baseUrl) {
+      // Fallback for development
+      baseUrl = 'http://localhost:3000';
+    }
+    
+    const url = `${baseUrl}/api/admin/reservation-update`;
 
     console.log('🌐 Calling API endpoint:', url);
 
@@ -88,8 +94,14 @@ export async function deleteReservation(
       return { success: false, error: 'User not authenticated' };
     }
 
-    // Use relative URL for server actions
-    const url = `/api/admin/reservation-delete`;
+    // Build proper URL
+    let baseUrl = process.env.NEXT_PUBLIC_APP_URL;
+    if (!baseUrl) {
+      // Fallback for development
+      baseUrl = 'http://localhost:3000';
+    }
+    
+    const url = `${baseUrl}/api/admin/reservation-delete`;
 
     // Call API endpoint with proper authentication
     const response = await fetch(url, {
