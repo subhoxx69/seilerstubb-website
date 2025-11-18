@@ -96,6 +96,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             console.error('⚠️ Auth Context: Error updating user in database:', dbError);
             // Continue anyway - user is authenticated even if DB update failed
           }
+          
+          // Get stored redirect URL and return path
+          const redirectUrl = sessionStorage.getItem('google_signin_redirect_url');
+          const returnPath = sessionStorage.getItem('google_signin_return_path');
+          
+          console.log('📍 Stored redirect URL:', redirectUrl);
+          console.log('📍 Stored return path:', returnPath);
+          
+          // Clear stored URLs
+          sessionStorage.removeItem('google_signin_redirect_url');
+          sessionStorage.removeItem('google_signin_return_path');
+          
+          // Redirect back to original page or home
+          let destinationUrl = '/';
+          
+          if (returnPath && returnPath !== '/auth/signin') {
+            // User came from somewhere other than signin page - redirect back there
+            destinationUrl = returnPath;
+            console.log('🎯 Redirecting to original page:', destinationUrl);
+          } else if (redirectUrl) {
+            // Use the full stored URL
+            try {
+              const urlObj = new URL(redirectUrl);
+              destinationUrl = urlObj.pathname + urlObj.search;
+              console.log('🎯 Redirecting to stored URL:', destinationUrl);
+            } catch (e) {
+              console.warn('Invalid redirect URL, using home:', redirectUrl);
+            }
+          }
+          
+          // Use a small delay to ensure state is updated, then redirect
+          setTimeout(() => {
+            console.log('➡️ Performing redirect to:', destinationUrl);
+            window.location.href = destinationUrl;
+          }, 500);
+          
         } else {
           console.log('✓ Auth Context: No redirect result (user came to page normally)');
         }

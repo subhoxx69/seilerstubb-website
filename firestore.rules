@@ -52,19 +52,12 @@ service cloud.firestore {
       allow create: if true;
       
       // UPDATE: Allow updates during signup/verification flow
-      // Allow if: admin, authenticated user, or email-based during signup
+      // Allow if: admin or authenticated user updating their own document
       allow update: if isMainAdmin() || 
-                       request.auth.uid == userId || 
-                       request.auth.uid == resource.data.firebaseUid ||
-                       true;  // Allow any update (email-based verification during signup)
+                       request.auth.uid == userId;
       
       // DELETE: Admin only
       allow delete: if isMainAdmin();
-    }
-    
-    // Allow wildcard read for users collection (for initial auth check during signup)
-    match /users/{document=**} {
-      allow read: if true;
     }
     
     // ==================== PUBLIC COLLECTIONS ====================
@@ -73,8 +66,7 @@ service cloud.firestore {
     // userId can be null for non-logged-in users or a string for authenticated users
     match /reservations/{document=**} {
       allow read: if isMainAdmin() || 
-                     (isAuthenticated() && document.userId == request.auth.uid) ||
-                     false;
+                     (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow create: if true;
       allow update: if isMainAdmin();
       allow delete: if isMainAdmin();

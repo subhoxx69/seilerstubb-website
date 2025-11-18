@@ -57,6 +57,9 @@ function SignInContent() {
         if (isGoogleSignInInProgress) {
           console.log('✅ Returning from Google Sign-In...');
           sessionStorage.removeItem('google_signin_in_progress');
+          
+          // Mark that we need to wait for auth state change
+          sessionStorage.setItem('waiting_for_auth_state', 'true');
         }
         
         const { getRedirectResult } = await import('firebase/auth');
@@ -101,7 +104,7 @@ function SignInContent() {
       } catch (error: any) {
         console.error('❌ Error handling redirect result:', error);
         if (isMounted) {
-          // If it's a timeout or no-auth-event, just continue
+          // If it's a timeout or no-auth-event, just continue (user came to page normally)
           if (error.code !== 'auth/no-auth-event' && error.message !== 'Redirect check timeout') {
             console.error('⚠️ Redirect error details:', error.code, error.message);
             setState((prev) => ({

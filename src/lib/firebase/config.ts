@@ -74,6 +74,7 @@ export const signInWithGoogle = async () => {
     console.log('🔐 Starting Google Sign-In...');
     console.log('Current URL:', window.location.href);
     console.log('Current hostname:', window.location.hostname);
+    console.log('Current protocol:', window.location.protocol);
     
     // Detect if on mobile
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
@@ -86,35 +87,53 @@ export const signInWithGoogle = async () => {
     
     console.log(`Localhost/Local IP: ${isLocalhost}`);
     
-    if (!isLocalhost && isMobile) {
-      // 📱 MOBILE PRODUCTION: Use redirect flow (most reliable for mobile)
-      console.log('📱 Production mobile - using redirect flow');
+    // Store the current page so we return to it after auth (works for all flows)
+    const redirectUrl = window.location.href;
+    const currentPathname = window.location.pathname;
+    sessionStorage.setItem('google_signin_redirect_url', redirectUrl);
+    sessionStorage.setItem('google_signin_return_path', currentPathname);
+    console.log('💾 Stored redirect URL:', redirectUrl);
+    console.log('💾 Stored return path:', currentPathname);
+    
+    // Clear any previous auth attempt
+    sessionStorage.removeItem('google_signin_in_progress');
+    
+    // Mark that we're starting auth
+    sessionStorage.setItem('google_signin_in_progress', 'true');
+    
+    // ALWAYS use redirect flow for production to ensure proper OAuth flow
+    // Popup has issues on mobile, especially iOS Safari
+    const isProduction = window.location.hostname === 'www.seilerstubb.com' || 
+                        window.location.hostname === 'seilerstubb.com';
+    
+    if (isProduction || isMobile || isLocalhost) {
+      // For production OR mobile OR localhost: Use REDIRECT flow
+      // This is more reliable for mobile browsers and ensures proper OAuth handling
+      console.log('🔄 Using REDIRECT flow for proper OAuth handling');
       
-      // Store the current page so we return to it after auth
-      const redirectUrl = window.location.href;
-      sessionStorage.setItem('google_signin_redirect_url', redirectUrl);
-      console.log('💾 Stored redirect URL:', redirectUrl);
+      // Configure provider for redirect
+      googleProvider.setCustomParameters({
+        prompt: 'select_account',
+        redirect_uri: window.location.origin + '/auth/signin' // Explicit redirect target
+      });
       
-      // Clear any previous auth attempt
-      sessionStorage.removeItem('google_signin_in_progress');
+      console.log('🌐 Initiating redirect to Google OAuth...');
+      console.log('🎯 Auth origin:', window.location.origin);
       
-      // Mark that we're starting auth
-      sessionStorage.setItem('google_signin_in_progress', 'true');
-      
-      // IMPORTANT: Use redirect - this is the proper flow for mobile browsers
       await signInWithRedirect(auth, googleProvider);
+      console.log('⏳ Redirect initiated - page will redirect to Google');
       return null; // Never reached, page will redirect
     } else {
-      // 🖥️ DESKTOP or LOCALHOST: Use popup flow (better UX for desktop/dev)
-      console.log('🔄 Using popup flow (localhost/local or desktop)');
+      // Only use popup for very specific desktop cases
+      console.log('🔄 Using popup flow (desktop non-production)');
       try {
         const result = await signInWithPopup(auth, googleProvider);
         console.log('✅ Popup sign-in successful:', result.user.email);
         return result;
       } catch (popupError: any) {
-        console.warn('Popup failed:', popupError.code);
-        // Fallback to redirect if popup fails
-        console.log('Falling back to redirect flow...');
+        console.warn('⚠️ Popup failed:', popupError.code);
+        // Fallback to redirect
+        console.log('📍 Falling back to redirect flow...');
         sessionStorage.setItem('google_signin_in_progress', 'true');
         await signInWithRedirect(auth, googleProvider);
         return null;
@@ -124,6 +143,7 @@ export const signInWithGoogle = async () => {
     console.error('❌ Google sign-in error:', error);
     console.error('Error code:', error.code);
     console.error('Error message:', error.message);
+    console.error('Full error:', error);
     
     // Handle specific errors
     if (error.code === 'auth/popup-blocked') {
