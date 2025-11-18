@@ -6,7 +6,6 @@ import {
   auth, 
   signInWithEmailAndPassword, 
   createUser,
-  signInWithGoogle 
 } from '@/lib/firebase/config';
 import { 
   createNewUser, 
@@ -23,7 +22,6 @@ interface AuthContextType {
   isLoading: boolean;
   signUp: (email: string, password: string, name: string, phone: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signInWithGoogleProvider: () => Promise<void>;
   signInWithPhoneNumber: (phoneNumber: string) => Promise<string>;
   verifyPhoneOTP: (verificationId: string, verificationCode: string) => Promise<void>;
   signUpWithPhone: (phoneNumber: string, name: string) => Promise<string>;
@@ -195,36 +193,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
   
-  const signInWithGoogleProvider = async () => {
-    try {
-      const result = await signInWithGoogle() as any;
-      
-      // If redirect flow is used, result will be null and user will be redirected
-      if (result === null) {
-        console.log('Google sign-in redirect initiated');
-        return;
-      }
-      
-      const fbUser = result?.user;
-      
-      // If this is their first Google sign-in, createOrUpdateUser will handle it
-      if (fbUser) {
-        await createOrUpdateUser(fbUser.uid, {
-          email: fbUser.email || '',
-          displayName: fbUser.displayName || undefined,
-          photoURL: fbUser.photoURL || undefined,
-          phoneNumber: fbUser.phoneNumber || undefined,
-        });
-
-        // Record the login
-        await recordUserLogin(fbUser.uid);
-      }
-    } catch (error) {
-      console.error('Error signing in with Google:', error);
-      throw error;
-    }
-  };
-
   const signInWithPhoneNumber = async (phoneNumber: string): Promise<string> => {
     try {
       const { sendPhoneVerificationCode } = await import('@/lib/firebase/phone-auth-service');
@@ -306,7 +274,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isLoading,
     signUp,
     signIn,
-    signInWithGoogleProvider,
     signInWithPhoneNumber,
     verifyPhoneOTP,
     signUpWithPhone,
