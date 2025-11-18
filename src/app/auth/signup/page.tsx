@@ -64,7 +64,7 @@ function SignUpContent() {
         ...prev,
         signUpMessage: {
           type: 'error',
-          message: 'Please fill in all fields',
+          message: 'Bitte füllen Sie alle Felder aus',
         },
       }));
       return;
@@ -75,7 +75,7 @@ function SignUpContent() {
         ...prev,
         signUpMessage: {
           type: 'error',
-          message: 'Passwords do not match',
+          message: 'Passwörter stimmen nicht überein',
         },
       }));
       return;
@@ -86,7 +86,7 @@ function SignUpContent() {
         ...prev,
         signUpMessage: {
           type: 'error',
-          message: 'Password must be at least 8 characters',
+          message: 'Passwort muss mindestens 8 Zeichen lang sein',
         },
       }));
       return;
@@ -99,7 +99,7 @@ function SignUpContent() {
         ...prev,
         signUpMessage: {
           type: 'error',
-          message: 'Please enter a valid email address',
+          message: 'Bitte geben Sie eine gültige E-Mail-Adresse ein',
         },
       }));
       return;
@@ -124,8 +124,8 @@ function SignUpContent() {
             type: 'error',
             message:
               authMethod === 'google'
-                ? 'This email is already registered with Google. Please sign in with Google instead.'
-                : 'Email already registered with password. Please sign in instead.',
+                ? 'Diese E-Mail ist bereits mit Google registriert. Melden Sie sich stattdessen mit Google an.'
+                : 'E-Mail bereits mit Passwort registriert. Melden Sie sich stattdessen an.',
           },
         }));
         return;
@@ -343,9 +343,9 @@ function SignUpContent() {
                   />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-slate-900">Create Account</h1>
+                  <h1 className="text-3xl font-bold text-slate-900">Konto erstellen</h1>
                   <CardDescription className="text-slate-600 text-base mt-2">
-                    Join Seiler Stubb community
+                    Treten Sie der Seiler Stubb-Gemeinde bei
                   </CardDescription>
                 </div>
               </motion.div>
@@ -400,14 +400,14 @@ function SignUpContent() {
                   className="space-y-2"
                 >
                   <Label htmlFor="email" className="text-slate-700 font-semibold text-sm">
-                    Email Address
+                    E-Mail-Adresse
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
                     <Input
                       id="email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder="sie@beispiel.com"
                       value={state.email}
                       onChange={(e) => handleInputChange('email', e.target.value)}
                       className="pl-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -424,14 +424,14 @@ function SignUpContent() {
                   className="space-y-2"
                 >
                   <Label htmlFor="password" className="text-slate-700 font-semibold text-sm">
-                    Password
+                    Passwort
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
                     <Input
                       id="password"
                       type={state.showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password"
+                      placeholder="Geben Sie Ihr Passwort ein"
                       value={state.password}
                       onChange={(e) => handleInputChange('password', e.target.value)}
                       className="pl-10 pr-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -450,7 +450,7 @@ function SignUpContent() {
                       )}
                     </button>
                   </div>
-                  <p className="text-xs text-slate-500">At least 8 characters</p>
+                  <p className="text-xs text-slate-500">Mindestens 8 Zeichen</p>
                 </motion.div>
 
                 {/* Confirm Password Field */}
@@ -461,14 +461,14 @@ function SignUpContent() {
                   className="space-y-2"
                 >
                   <Label htmlFor="confirmPassword" className="text-slate-700 font-semibold text-sm">
-                    Confirm Password
+                    Passwort Bestätigen
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
                     <Input
                       id="confirmPassword"
                       type={state.showConfirmPassword ? 'text' : 'password'}
-                      placeholder="Confirm your password"
+                      placeholder="Bestätigen Sie Ihr Passwort"
                       value={state.confirmPassword}
                       onChange={(e) => handleInputChange('confirmPassword', e.target.value)}
                       className="pl-10 pr-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -505,12 +505,12 @@ function SignUpContent() {
                         transition={{ duration: 1, repeat: Infinity }}
                         className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                       />
-                      Creating account...
+                      Konto wird erstellt...
                     </>
                   ) : (
                     <>
                       <LogIn className="w-5 h-5" />
-                      Create Account
+                      Konto erstellen
                     </>
                   )}
                 </motion.button>
@@ -524,9 +524,9 @@ function SignUpContent() {
                 className="pt-4 border-t border-amber-100"
               >
                 <p className="text-center text-slate-600 text-sm">
-                  Already have an account?{' '}
+                  Haben Sie bereits ein Konto?{' '}
                   <Link href="/auth/signin" className="text-amber-600 hover:text-amber-700 font-bold flex items-center justify-center gap-1 mt-3">
-                    Sign in here <ArrowRight className="w-4 h-4" />
+                    Hier anmelden <ArrowRight className="w-4 h-4" />
                   </Link>
                 </p>
               </motion.div>
@@ -541,32 +541,6 @@ function SignUpContent() {
             isLoading={state.isLoading}
             expiryTime={state.otpExpiryTime || undefined}
           />
-        )}
-
-        {/* Footer */}
-        {state.stage === 'form' && (
-          <>
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.6 }}
-              className="text-center text-slate-500 text-xs mt-6"
-            >
-              By signing up, you agree to our Terms of Service and Privacy Policy
-            </motion.p>
-
-            {/* Back to home link */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.7 }}
-              className="text-center mt-4"
-            >
-              <Link href="/" className="text-amber-600 hover:text-amber-700 font-semibold inline-flex items-center gap-1 transition-colors">
-                ← Back to Home
-              </Link>
-            </motion.div>
-          </>
         )}
       </motion.div>
     </div>

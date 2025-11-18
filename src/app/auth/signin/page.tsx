@@ -58,7 +58,7 @@ function SignInContent() {
     if (!state.email || !state.password) {
       setState((prev) => ({
         ...prev,
-        signInMessage: { type: 'error', message: 'Please enter your email and password' },
+        signInMessage: { type: 'error', message: 'Bitte geben Sie Ihre E-Mail und Ihr Passwort ein' },
       }));
       return;
     }
@@ -77,7 +77,7 @@ function SignInContent() {
           isLoading: false,
           signInMessage: {
             type: 'error',
-            message: 'Email not found. Please sign up first.',
+            message: 'E-Mail nicht gefunden. Bitte registrieren Sie sich zuerst.',
           },
         }));
         return;
@@ -93,7 +93,7 @@ function SignInContent() {
           isLoading: false,
           signInMessage: {
             type: 'error',
-            message: 'This account is registered with Google. Please use Google Sign-In instead.',
+            message: 'Dieses Konto ist mit Google registriert. Bitte verwenden Sie Google-Anmeldung.',
           },
         }));
         return;
@@ -125,7 +125,7 @@ function SignInContent() {
               isLoading: false,
               signInMessage: {
                 type: 'error',
-                message: 'Invalid email or password',
+                message: 'Ungültige E-Mail oder Passwort',
               },
             }));
             return;
@@ -139,7 +139,7 @@ function SignInContent() {
             isLoading: false,
             signInMessage: {
               type: 'error',
-              message: 'Invalid email or password',
+              message: 'Ungültige E-Mail oder Passwort',
             },
           }));
           return;
@@ -168,26 +168,26 @@ function SignInContent() {
         if (!emailResponse.ok) {
           const errorData = await emailResponse.json();
           console.error('❌ Email sending failed:', errorData);
-          throw new Error(errorData.error || 'Failed to send email');
+          throw new Error(errorData.error || 'Fehler beim Senden der E-Mail');
         }
 
         const emailResult = await emailResponse.json();
         console.log('✅ Email sent successfully:', emailResult);
       } catch (emailError: any) {
         console.error('❌ Error sending OTP email:', emailError);
-        toast.error('Failed to send OTP email. Please try again.');
+        toast.error('Fehler beim Senden der OTP-E-Mail. Bitte versuchen Sie es erneut.');
         setState((prev) => ({
           ...prev,
           isLoading: false,
           signInMessage: {
             type: 'error',
-            message: 'Failed to send OTP email. Please try again.',
+            message: 'Fehler beim Senden der OTP-E-Mail. Bitte versuchen Sie es erneut.',
           },
         }));
         return;
       }
 
-      toast.success(`OTP sent to ${state.email}`);
+      toast.success(`OTP an ${state.email} gesendet`);
 
       // Calculate expiry time
       const expiryTime = await getOTPExpiryTime(state.email);
@@ -279,12 +279,12 @@ function SignInContent() {
         );
       }
 
-      toast.success('✓ Login verified! Redirecting...');
+      toast.success('✓ Anmeldung bestätigt! Umleitung läuft...');
       setState((prev) => ({
         ...prev,
         signInMessage: {
           type: 'success',
-          message: '✓ Signed in successfully! Redirecting...',
+          message: '✓ Erfolgreich angemeldet! Umleitung läuft...',
         },
       }));
 
@@ -294,7 +294,7 @@ function SignInContent() {
       }, 2000);
     } catch (error: any) {
       console.error('OTP verification error:', error);
-      toast.error(error.message || 'OTP verification failed');
+      toast.error(error.message || 'OTP-Verifikation fehlgeschlagen');
     }
   };
 
@@ -321,18 +321,18 @@ function SignInContent() {
         if (!emailResponse.ok) {
           const errorData = await emailResponse.json();
           console.error('❌ Email sending failed:', errorData);
-          throw new Error(errorData.error || 'Failed to send email');
+          throw new Error(errorData.error || 'Fehler beim Senden der E-Mail');
         }
 
         const emailResult = await emailResponse.json();
         console.log('✅ Email resent successfully:', emailResult);
       } catch (emailError: any) {
         console.error('❌ Error resending OTP email:', emailError);
-        toast.error('Failed to resend OTP email. Please try again.');
+        toast.error('Fehler beim erneuten Senden der OTP-E-Mail. Bitte versuchen Sie es erneut.');
         return;
       }
 
-      toast.success('OTP resent to your email');
+      toast.success('OTP erneut an Ihre E-Mail gesendet');
 
       const expiryTime = await getOTPExpiryTime(state.email);
       setState((prev) => ({
@@ -341,7 +341,7 @@ function SignInContent() {
       }));
     } catch (error: any) {
       console.error('OTP resend error:', error);
-      toast.error(error.message || 'Failed to resend OTP');
+      toast.error(error.message || 'Fehler beim erneuten Senden der OTP');
     }
   };
 
@@ -387,9 +387,9 @@ function SignInContent() {
                   />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-slate-900">Welcome Back</h1>
+                  <h1 className="text-3xl font-bold text-slate-900">Willkommen zurück</h1>
                   <CardDescription className="text-slate-600 text-base mt-2">
-                    Sign in to your restaurant account
+                    Melden Sie sich bei Ihrem Restaurant-Konto an
                   </CardDescription>
                 </div>
               </motion.div>
@@ -443,14 +443,14 @@ function SignInContent() {
                   className="space-y-2"
                 >
                   <Label htmlFor="email" className="text-slate-700 font-semibold text-sm">
-                    Email Address
+                    E-Mail-Adresse
                   </Label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
                     <Input
                       id="email"
                       type="email"
-                      placeholder="you@example.com"
+                      placeholder="sie@beispiel.com"
                       value={state.email}
                       onChange={(e) => setState((prev) => ({ ...prev, email: e.target.value }))}
                       className="pl-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -466,14 +466,14 @@ function SignInContent() {
                   className="space-y-2"
                 >
                   <Label htmlFor="password" className="text-slate-700 font-semibold text-sm">
-                    Password
+                    Passwort
                   </Label>
                   <div className="relative">
                     <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
                     <Input
                       id="password"
                       type={state.showPassword ? 'text' : 'password'}
-                      placeholder="Enter your password"
+                      placeholder="Geben Sie Ihr Passwort ein"
                       value={state.password}
                       onChange={(e) => setState((prev) => ({ ...prev, password: e.target.value }))}
                       className="pl-10 pr-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -505,7 +505,7 @@ function SignInContent() {
                     href="/auth/reset-password"
                     className="text-sm text-amber-600 hover:text-amber-700 font-semibold transition-colors"
                   >
-                    Forgot Password?
+                    Passwort vergessen?
                   </Link>
                 </motion.div>
 
@@ -524,12 +524,12 @@ function SignInContent() {
                         transition={{ duration: 1, repeat: Infinity }}
                         className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                       />
-                      Signing in...
+                      Wird angemeldet...
                     </>
                   ) : (
                     <>
                       <LogIn className="w-5 h-5" />
-                      Sign In
+                      Anmelden
                     </>
                   )}
                 </motion.button>
@@ -543,12 +543,12 @@ function SignInContent() {
                 className="pt-4 border-t border-amber-100"
               >
                 <p className="text-center text-slate-600 text-sm">
-                  Don't have an account?{' '}
+                  Haben Sie noch kein Konto?{' '}
                   <Link
                     href="/auth/signup"
                     className="text-amber-600 hover:text-amber-700 font-bold flex items-center justify-center gap-1 mt-3"
                   >
-                    Create one now <ArrowRight className="w-4 h-4" />
+                    Jetzt erstellen <ArrowRight className="w-4 h-4" />
                   </Link>
                 </p>
               </motion.div>
@@ -562,7 +562,7 @@ function SignInContent() {
             transition={{ delay: 0.8 }}
             className="text-center text-slate-500 text-xs mt-6"
           >
-            By signing in, you agree to our Terms of Service and Privacy Policy
+            Durch die Anmeldung akzeptieren Sie unsere Nutzungsbedingungen und Datenschutzrichtlinie
           </motion.p>
 
           {/* Back to home link */}
@@ -576,7 +576,7 @@ function SignInContent() {
               href="/"
               className="text-amber-600 hover:text-amber-700 font-semibold inline-flex items-center gap-1 transition-colors"
             >
-              ← Back to Home
+              ← Zurück zur Startseite
             </Link>
           </motion.div>
         </motion.div>

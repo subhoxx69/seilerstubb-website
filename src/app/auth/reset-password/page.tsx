@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardDescription } from '@/components/ui/card';
@@ -10,49 +10,38 @@ import { Label } from '@/components/ui/label';
 import { Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { db, auth } from '@/lib/firebase/config';
+import { db } from '@/lib/firebase/config';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import crypto from 'crypto';
-import { sendPasswordResetEmail, confirmPasswordReset } from 'firebase/auth';
+import { createOTP, verifyOTP, getOTPExpiryTime } from '@/lib/services/otp-service';
 
 interface ResetPasswordState {
-  stage: 'request' | 'reset' | 'success';
+  stage: 'request' | 'otp' | 'reset' | 'success';
   email: string;
+  otp: string;
   newPassword: string;
   confirmPassword: string;
   showPassword: boolean;
   showConfirmPassword: boolean;
   isLoading: boolean;
   resetMessage: { type: 'success' | 'error'; message: string } | null;
-  resetToken: string | null;
+  otpExpiryTime: Date | null;
 }
 
 function ResetPasswordContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [state, setState] = useState<ResetPasswordState>({
     stage: 'request',
     email: '',
+    otp: '',
     newPassword: '',
     confirmPassword: '',
     showPassword: false,
     showConfirmPassword: false,
     isLoading: false,
     resetMessage: null,
-    resetToken: null,
+    otpExpiryTime: null,
   });
-
-  // Check if reset token is provided in URL
-  React.useEffect(() => {
-    const token = searchParams.get('token');
-    if (token) {
-      setState((prev) => ({
-        ...prev,
-        stage: 'reset',
-        resetToken: token,
-      }));
-    }
-  }, [searchParams]);
 
   const handleRequestReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,7 +51,7 @@ function ResetPasswordContent() {
         ...prev,
         resetMessage: {
           type: 'error',
-          message: 'Please enter your email address',
+          message: 'Bitte geben Sie Ihre E-Mail-Adresse ein',
         },
       }));
       return;
@@ -74,7 +63,7 @@ function ResetPasswordContent() {
         ...prev,
         resetMessage: {
           type: 'error',
-          message: 'Please enter a valid email address',
+          message: 'Bitte geben Sie eine gültige E-Mail-Adresse ein',
         },
       }));
       return;
@@ -94,7 +83,7 @@ function ResetPasswordContent() {
           isLoading: false,
           resetMessage: {
             type: 'error',
-            message: 'Email not found. Please sign up first.',
+            message: 'E-Mail nicht gefunden. Bitte registrieren Sie sich zuerst.',
           },
         }));
         return;
@@ -109,28 +98,35 @@ function ResetPasswordContent() {
           isLoading: false,
           resetMessage: {
             type: 'error',
-            message: 'This account is registered with Google. Please use Google Sign-In instead.',
+            message: 'Dieses Konto ist mit Google registriert. Bitte verwenden Sie Google-Anmeldung.',
           },
         }));
         return;
       }
 
-      // For now, we'll show a simplified message
-      // In production, you would send an email with a reset link
-      const resetToken = crypto.randomBytes(32).toString('hex');
+      // Generate and send OTP
+      const otpCode = await createOTP(state.email);
+      
+      // TODO: Send OTP via email using your Gmail configuration
+      console.log(`OTP for ${state.email}: ${otpCode}`);
 
       setState((prev) => ({
         ...prev,
         isLoading: false,
-        stage: 'reset',
-        resetToken: resetToken,
+        stage: 'otp',
         resetMessage: {
           type: 'success',
-          message: `Password reset link has been generated. Please enter your new password.`,
+          message: `OTP wurde an ${state.email} gesendet. Bitte überprüfen Sie Ihren Posteingang.`,
         },
       }));
 
-      toast.success('Reset link generated. Please enter your new password.');
+      const expiryTime = await getOTPExpiryTime(state.email);
+      setState((prev) => ({
+        ...prev,
+        otpExpiryTime: expiryTime,
+      }));
+
+      toast.success('OTP gesendet! Bitte überprüfen Sie Ihre E-Mail.');
     } catch (error: any) {
       console.error('Reset request error:', error);
       setState((prev) => ({
@@ -138,10 +134,67 @@ function ResetPasswordContent() {
         isLoading: false,
         resetMessage: {
           type: 'error',
-          message: error.message || 'Failed to process password reset request',
+          message: error.message || 'Fehler bei der Passwort-Zurücksetzen-Anfrage',
         },
       }));
-      toast.error('Failed to process password reset request');
+      toast.error('Fehler bei der Anfrage');
+    }
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!state.otp) {
+      setState((prev) => ({
+        ...prev,
+        resetMessage: {
+          type: 'error',
+          message: 'Bitte geben Sie den OTP-Code ein',
+        },
+      }));
+      return;
+    }
+
+    setState((prev) => ({ ...prev, isLoading: true, resetMessage: null }));
+
+    try {
+      const isValid = await verifyOTP(state.email, state.otp);
+
+      if (!isValid) {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          resetMessage: {
+            type: 'error',
+            message: 'Ungültiger oder abgelaufener OTP-Code',
+          },
+        }));
+        toast.error('OTP ungültig');
+        return;
+      }
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        stage: 'reset',
+        resetMessage: {
+          type: 'success',
+          message: 'OTP bestätigt. Geben Sie Ihr neues Passwort ein.',
+        },
+      }));
+
+      toast.success('OTP bestätigt!');
+    } catch (error: any) {
+      console.error('OTP verification error:', error);
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        resetMessage: {
+          type: 'error',
+          message: error.message || 'Fehler bei der OTP-Verifikation',
+        },
+      }));
+      toast.error('Fehler bei OTP-Verifikation');
     }
   };
 
@@ -153,7 +206,7 @@ function ResetPasswordContent() {
         ...prev,
         resetMessage: {
           type: 'error',
-          message: 'Please fill in all fields',
+          message: 'Bitte füllen Sie alle Felder aus',
         },
       }));
       return;
@@ -164,7 +217,7 @@ function ResetPasswordContent() {
         ...prev,
         resetMessage: {
           type: 'error',
-          message: 'Passwords do not match',
+          message: 'Passwörter stimmen nicht überein',
         },
       }));
       return;
@@ -175,7 +228,7 @@ function ResetPasswordContent() {
         ...prev,
         resetMessage: {
           type: 'error',
-          message: 'Password must be at least 8 characters',
+          message: 'Passwort muss mindestens 8 Zeichen lang sein',
         },
       }));
       return;
@@ -204,7 +257,7 @@ function ResetPasswordContent() {
           updatedAt: new Date(),
         });
 
-        toast.success('✓ Password reset successfully! Redirecting to sign in...');
+        toast.success('✓ Passwort erfolgreich zurückgesetzt! Umleitung zum Anmelden...');
 
         setState((prev) => ({
           ...prev,
@@ -212,7 +265,7 @@ function ResetPasswordContent() {
           stage: 'success',
           resetMessage: {
             type: 'success',
-            message: '✓ Password has been reset successfully!',
+            message: '✓ Passwort erfolgreich zurückgesetzt!',
           },
         }));
 
@@ -228,11 +281,20 @@ function ResetPasswordContent() {
         isLoading: false,
         resetMessage: {
           type: 'error',
-          message: error.message || 'Failed to reset password',
+          message: error.message || 'Fehler beim Zurücksetzen des Passworts',
         },
       }));
-      toast.error('Failed to reset password');
+      toast.error('Fehler beim Zurücksetzen des Passworts');
     }
+  };
+
+  const handleBackToEmail = () => {
+    setState((prev) => ({
+      ...prev,
+      stage: 'request',
+      otp: '',
+      resetMessage: null,
+    }));
   };
 
   return (
@@ -531,28 +593,6 @@ function ResetPasswordContent() {
             </CardContent>
           </Card>
         )}
-
-        {/* Footer */}
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="text-center text-slate-500 text-xs mt-6"
-        >
-          Your password will be securely stored
-        </motion.p>
-
-        {/* Back to home link */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.6 }}
-          className="text-center mt-4"
-        >
-          <Link href="/" className="text-amber-600 hover:text-amber-700 font-semibold inline-flex items-center gap-1 transition-colors">
-            ← Back to Home
-          </Link>
-        </motion.div>
       </motion.div>
     </div>
   );
