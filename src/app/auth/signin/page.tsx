@@ -13,7 +13,7 @@ import { toast } from 'sonner';
 import { OTPVerificationWidget } from '@/components/auth/otp-verification-widget';
 import { createOTP, verifyOTP, getOTPExpiryTime } from '@/lib/services/otp-service';
 import { db, auth } from '@/lib/firebase/config';
-import { collection, query, where, getDocs, setDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import crypto from 'crypto';
 
 interface SignInState {
@@ -99,52 +99,26 @@ function SignInContent() {
         return;
       }
 
-      // Verify password with Firebase Auth (don't use hashed password from Firestore)
-      // This will throw an error if password is wrong
-      try {
-        const { signInWithEmailAndPassword } = await import('firebase/auth');
-        console.log('[SignIn] Verifying credentials with Firebase Auth...');
-        await signInWithEmailAndPassword(auth, state.email, state.password);
-        console.log('[SignIn] Credentials verified successfully');
-      } catch (authError: any) {
-        console.error('[SignIn] Firebase Auth verification failed:', authError.code);
-        
-        // If user doesn't exist in Firebase Auth (old Firestore-only account)
-        // Fall back to password hash verification
-        if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found') {
-          console.log('[SignIn] User not in Firebase Auth, checking Firestore password...');
-          
-          const hashedPassword = crypto
-            .createHash('sha256')
-            .update(state.password)
-            .digest('hex');
+      // Verify password against Firestore hashed password
+      // This works for both old Firestore-only accounts and new Firebase Auth accounts
+      const hashedPassword = crypto
+        .createHash('sha256')
+        .update(state.password)
+        .digest('hex');
 
-          if (userData.password !== hashedPassword) {
-            setState((prev) => ({
-              ...prev,
-              isLoading: false,
-              signInMessage: {
-                type: 'error',
-                message: 'Ungültige E-Mail oder Passwort',
-              },
-            }));
-            return;
-          }
-          
-          console.log('[SignIn] Firestore password verified, creating Firebase Auth account...');
-        } else {
-          // Other errors (wrong password, etc)
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            signInMessage: {
-              type: 'error',
-              message: 'Ungültige E-Mail oder Passwort',
-            },
-          }));
-          return;
-        }
+      if (userData.password !== hashedPassword) {
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          signInMessage: {
+            type: 'error',
+            message: 'Ungültige E-Mail oder Passwort',
+          },
+        }));
+        return;
       }
+
+      console.log('[SignIn] Firestore password verified successfully');
 
       // Generate and send OTP
       const otpCode = await createOTP(state.email);
@@ -224,59 +198,47 @@ function SignInContent() {
         return;
       }
 
-      // OTP verified! Now authenticate user with Firebase Auth
+      // OTP verified! Call backend to authenticate and create Firebase Auth account if needed
       try {
-        console.log('[SignIn] Attempting to authenticate with Firebase Auth...');
-        const { signInWithEmailAndPassword } = await import('firebase/auth');
-        
-        try {
-          await signInWithEmailAndPassword(auth, state.email, state.password);
-          console.log('[SignIn] User authenticated successfully with Firebase Auth');
-        } catch (authError: any) {
-          console.error('[SignIn] Firebase Auth sign-in failed:', authError.code);
-          
-          // If user doesn't exist in Firebase Auth (old Firestore-only account)
-          // we need to create them first, then sign in
-          if (authError.code === 'auth/invalid-credential' || authError.code === 'auth/user-not-found') {
-            console.log('[SignIn] User not in Firebase Auth, creating account...');
-            
-            const { createUserWithEmailAndPassword } = await import('firebase/auth');
-            try {
-              await createUserWithEmailAndPassword(auth, state.email, state.password);
-              console.log('[SignIn] Firebase Auth account created');
-              
-              // Now sign in
-              await signInWithEmailAndPassword(auth, state.email, state.password);
-              console.log('[SignIn] User signed in after account creation');
-            } catch (createError: any) {
-              console.error('[SignIn] Error creating/signing in:', createError);
-              throw createError;
-            }
-          } else {
-            // Other auth errors (wrong password, etc)
-            throw authError;
+        console.log('[SignIn] Calling backend authentication API...');
+        const authResponse = await fetch('/api/authenticate', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: state.email,
+            password: state.password,
+          }),
+        });
+
+        console.log(`[SignIn] Backend response status: ${authResponse.status}`);
+        const authData = await authResponse.json();
+        console.log(`[SignIn] Backend response data:`, authData);
+
+        if (!authResponse.ok) {
+          const errorMessage = authData.error || authData.details || `HTTP ${authResponse.status}`;
+          console.error('[SignIn] Backend authentication failed:', errorMessage);
+          throw new Error(errorMessage);
+        }
+
+        console.log('[SignIn] Backend authentication successful');
+
+        // If we got a custom token, sign in with it
+        if (authData.customToken) {
+          try {
+            const { signInWithCustomToken } = await import('firebase/auth');
+            await signInWithCustomToken(auth, authData.customToken);
+            console.log('[SignIn] User signed in with custom token');
+          } catch (tokenError: any) {
+            console.error('[SignIn] Error signing in with custom token:', tokenError);
+            // Continue anyway - user is verified via backend
           }
         }
       } catch (authError: any) {
-        console.error('[SignIn] Final Firebase Auth error:', authError);
-        toast.error('Authentication failed. Please check your email and password.');
+        console.error('[SignIn] Final authentication error:', authError);
+        toast.error(`Authentication failed: ${authError.message}`);
         return;
-      }
-
-      // Update last login time
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', state.email));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const userDoc = querySnapshot.docs[0];
-        await setDoc(
-          userDoc.ref,
-          {
-            lastLogin: new Date(),
-          },
-          { merge: true }
-        );
       }
 
       toast.success('✓ Anmeldung bestätigt! Umleitung läuft...');

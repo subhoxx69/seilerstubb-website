@@ -11,8 +11,7 @@ import { Mail, Lock, Eye, EyeOff, CheckCircle, AlertCircle, ArrowRight } from 'l
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase/config';
-import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
-import crypto from 'crypto';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { createOTP, verifyOTP, getOTPExpiryTime } from '@/lib/services/otp-service';
 
 interface ResetPasswordState {
@@ -104,29 +103,61 @@ function ResetPasswordContent() {
         return;
       }
 
-      // Generate and send OTP
+      // Generate OTP
       const otpCode = await createOTP(state.email);
+      console.log(`OTP generated for ${state.email}: ${otpCode}`);
       
-      // TODO: Send OTP via email using your Gmail configuration
-      console.log(`OTP for ${state.email}: ${otpCode}`);
+      // Send OTP via Gmail API
+      try {
+        const emailResponse = await fetch('/api/send-otp-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: state.email,
+            otpCode: otpCode,
+          }),
+        });
 
-      setState((prev) => ({
-        ...prev,
-        isLoading: false,
-        stage: 'otp',
-        resetMessage: {
-          type: 'success',
-          message: `OTP wurde an ${state.email} gesendet. Bitte überprüfen Sie Ihren Posteingang.`,
-        },
-      }));
+        if (!emailResponse.ok) {
+          const errorData = await emailResponse.json();
+          throw new Error(errorData.error || 'Failed to send OTP email');
+        }
 
-      const expiryTime = await getOTPExpiryTime(state.email);
-      setState((prev) => ({
-        ...prev,
-        otpExpiryTime: expiryTime,
-      }));
+        const emailData = await emailResponse.json();
+        console.log('✅ OTP email sent successfully:', emailData);
 
-      toast.success('OTP gesendet! Bitte überprüfen Sie Ihre E-Mail.');
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          stage: 'otp',
+          resetMessage: {
+            type: 'success',
+            message: `OTP wurde an ${state.email} gesendet. Bitte überprüfen Sie Ihren Posteingang.`,
+          },
+        }));
+
+        const expiryTime = await getOTPExpiryTime(state.email);
+        setState((prev) => ({
+          ...prev,
+          otpExpiryTime: expiryTime,
+        }));
+
+        toast.success('OTP gesendet! Bitte überprüfen Sie Ihre E-Mail.');
+      } catch (emailError: any) {
+        console.error('❌ Error sending OTP email:', emailError);
+        setState((prev) => ({
+          ...prev,
+          isLoading: false,
+          resetMessage: {
+            type: 'error',
+            message: `Fehler beim Versenden der OTP: ${emailError.message}`,
+          },
+        }));
+        toast.error('Fehler beim Versenden der OTP');
+        return;
+      }
     } catch (error: any) {
       console.error('Reset request error:', error);
       setState((prev) => ({
@@ -237,43 +268,42 @@ function ResetPasswordContent() {
     setState((prev) => ({ ...prev, isLoading: true, resetMessage: null }));
 
     try {
-      // Hash the new password
-      const hashedPassword = crypto
-        .createHash('sha256')
-        .update(state.newPassword)
-        .digest('hex');
+      // Call backend API to reset password
+      const resetResponse = await fetch('/api/reset-password', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: state.email,
+          newPassword: state.newPassword,
+        }),
+      });
 
-      // Update password in database
-      const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', state.email));
-      const querySnapshot = await getDocs(q);
-
-      if (!querySnapshot.empty) {
-        const userDocId = querySnapshot.docs[0].id;
-        const userRef = doc(db, 'users', userDocId);
-
-        await updateDoc(userRef, {
-          password: hashedPassword,
-          updatedAt: new Date(),
-        });
-
-        toast.success('✓ Passwort erfolgreich zurückgesetzt! Umleitung zum Anmelden...');
-
-        setState((prev) => ({
-          ...prev,
-          isLoading: false,
-          stage: 'success',
-          resetMessage: {
-            type: 'success',
-            message: '✓ Passwort erfolgreich zurückgesetzt!',
-          },
-        }));
-
-        // Redirect to signin after 2 seconds
-        setTimeout(() => {
-          router.push('/auth/signin');
-        }, 2000);
+      if (!resetResponse.ok) {
+        const errorData = await resetResponse.json();
+        throw new Error(errorData.error || 'Failed to reset password');
       }
+
+      const resetData = await resetResponse.json();
+      console.log('✅ Password reset successfully:', resetData);
+
+      toast.success('✓ Passwort erfolgreich zurückgesetzt! Umleitung zum Anmelden...');
+
+      setState((prev) => ({
+        ...prev,
+        isLoading: false,
+        stage: 'success',
+        resetMessage: {
+          type: 'success',
+          message: '✓ Passwort erfolgreich zurückgesetzt!',
+        },
+      }));
+
+      // Redirect to signin after 2 seconds
+      setTimeout(() => {
+        router.push('/auth/signin');
+      }, 2000);
     } catch (error: any) {
       console.error('Password reset error:', error);
       setState((prev) => ({
@@ -336,12 +366,14 @@ function ResetPasswordContent() {
                 transition={{ delay: 0.2 }}
                 className="text-3xl font-bold text-slate-900 text-center"
               >
-                {state.stage === 'request' ? 'Reset Password' : 'New Password'}
+                {state.stage === 'request' ? 'Passwort Zurücksetzen' : state.stage === 'otp' ? 'OTP Bestätigung' : 'Neues Passwort'}
               </motion.h1>
               <CardDescription className="text-center text-slate-600 mt-2">
                 {state.stage === 'request'
-                  ? 'Enter your email to reset your password'
-                  : 'Enter your new password'}
+                  ? 'Geben Sie Ihre E-Mail ein, um Ihr Passwort zurückzusetzen'
+                  : state.stage === 'otp'
+                  ? 'Geben Sie den OTP-Code ein, den wir an Ihre E-Mail gesendet haben'
+                  : 'Geben Sie Ihr neues Passwort ein'}
               </CardDescription>
             </CardHeader>
 
@@ -385,14 +417,14 @@ function ResetPasswordContent() {
                     className="space-y-2"
                   >
                     <Label htmlFor="email" className="text-slate-700 font-semibold text-sm">
-                      Email Address
+                      E-Mail-Adresse
                     </Label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
                       <Input
                         id="email"
                         type="email"
-                        placeholder="you@example.com"
+                        placeholder="sie@beispiel.com"
                         value={state.email}
                         onChange={(e) => setState((prev) => ({ ...prev, email: e.target.value }))}
                         className="pl-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -417,14 +449,86 @@ function ResetPasswordContent() {
                           transition={{ duration: 1, repeat: Infinity }}
                           className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                         />
-                        Processing...
+                        Wird verarbeitet...
                       </>
                     ) : (
                       <>
                         <Mail className="w-5 h-5" />
-                        Send Reset Link
+                        OTP senden
                       </>
                     )}
+                  </motion.button>
+                </form>
+              ) : state.stage === 'otp' ? (
+                // OTP Verification Stage
+                <form onSubmit={handleVerifyOTP} className="space-y-5">
+                  {/* OTP Field */}
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.2 }}
+                    className="space-y-2"
+                  >
+                    <Label htmlFor="otp" className="text-slate-700 font-semibold text-sm">
+                      OTP-Code
+                    </Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
+                      <Input
+                        id="otp"
+                        type="text"
+                        placeholder="000000"
+                        maxLength={6}
+                        value={state.otp}
+                        onChange={(e) => setState((prev) => ({ ...prev, otp: e.target.value.replace(/\D/g, '') }))}
+                        className="pl-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all text-center text-2xl tracking-widest"
+                        disabled={state.isLoading}
+                      />
+                    </div>
+                    {state.otpExpiryTime && (
+                      <p className="text-xs text-slate-500">
+                        OTP gültig bis: {state.otpExpiryTime.toLocaleTimeString('de-DE')}
+                      </p>
+                    )}
+                  </motion.div>
+
+                  {/* Verify Button */}
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3 }}
+                    type="submit"
+                    disabled={state.isLoading}
+                    className="w-full py-3 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 disabled:from-slate-300 disabled:to-slate-400 text-white font-bold rounded-xl transition-all duration-300 flex items-center justify-center gap-2 shadow-lg hover:shadow-xl hover:shadow-amber-200/50"
+                  >
+                    {state.isLoading ? (
+                      <>
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity }}
+                          className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
+                        />
+                        Wird überprüft...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="w-5 h-5" />
+                        OTP Bestätigen
+                      </>
+                    )}
+                  </motion.button>
+
+                  {/* Back Button */}
+                  <motion.button
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.35 }}
+                    type="button"
+                    onClick={handleBackToEmail}
+                    disabled={state.isLoading}
+                    className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl transition-all"
+                  >
+                    Zurück
                   </motion.button>
                 </form>
               ) : (
@@ -438,14 +542,14 @@ function ResetPasswordContent() {
                     className="space-y-2"
                   >
                     <Label htmlFor="newPassword" className="text-slate-700 font-semibold text-sm">
-                      New Password
+                      Neues Passwort
                     </Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
                       <Input
                         id="newPassword"
                         type={state.showPassword ? 'text' : 'password'}
-                        placeholder="Enter new password"
+                        placeholder="Geben Sie ein neues Passwort ein"
                         value={state.newPassword}
                         onChange={(e) => setState((prev) => ({ ...prev, newPassword: e.target.value }))}
                         className="pl-10 pr-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -464,7 +568,7 @@ function ResetPasswordContent() {
                         )}
                       </button>
                     </div>
-                    <p className="text-xs text-slate-500">At least 8 characters</p>
+                    <p className="text-xs text-slate-500">Mindestens 8 Zeichen</p>
                   </motion.div>
 
                   {/* Confirm Password Field */}
@@ -475,14 +579,14 @@ function ResetPasswordContent() {
                     className="space-y-2"
                   >
                     <Label htmlFor="confirmPassword" className="text-slate-700 font-semibold text-sm">
-                      Confirm Password
+                      Passwort Bestätigen
                     </Label>
                     <div className="relative">
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-amber-600/60 pointer-events-none" />
                       <Input
                         id="confirmPassword"
                         type={state.showConfirmPassword ? 'text' : 'password'}
-                        placeholder="Confirm new password"
+                        placeholder="Bestätigen Sie Ihr neues Passwort"
                         value={state.confirmPassword}
                         onChange={(e) => setState((prev) => ({ ...prev, confirmPassword: e.target.value }))}
                         className="pl-10 pr-10 bg-white border-2 border-amber-100 text-slate-900 placeholder-slate-400 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -519,12 +623,12 @@ function ResetPasswordContent() {
                           transition={{ duration: 1, repeat: Infinity }}
                           className="w-5 h-5 border-2 border-white border-t-transparent rounded-full"
                         />
-                        Resetting...
+                        Wird zurückgesetzt...
                       </>
                     ) : (
                       <>
                         <Lock className="w-5 h-5" />
-                        Reset Password
+                        Passwort Zurücksetzen
                       </>
                     )}
                   </motion.button>
