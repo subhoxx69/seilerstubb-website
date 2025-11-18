@@ -70,8 +70,11 @@ service cloud.firestore {
     // ==================== PUBLIC COLLECTIONS ====================
     
     // Reservations - public create, admin manage
+    // userId can be null for non-logged-in users or a string for authenticated users
     match /reservations/{document=**} {
-      allow read: if isMainAdmin();
+      allow read: if isMainAdmin() || 
+                     (isAuthenticated() && document.userId == request.auth.uid) ||
+                     false;
       allow create: if true;
       allow update: if isMainAdmin();
       allow delete: if isMainAdmin();

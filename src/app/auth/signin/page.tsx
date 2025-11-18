@@ -49,12 +49,25 @@ function SignInContent() {
     
     const handleRedirectResult = async () => {
       try {
+        console.log('🔍 Sign-In Page: Checking for redirect result...');
+        
+        const isGoogleSignInInProgress = sessionStorage.getItem('google_signin_in_progress');
+        console.log('Google sign-in in progress flag:', isGoogleSignInInProgress);
+        
+        if (isGoogleSignInInProgress) {
+          console.log('✅ Returning from Google Sign-In...');
+          sessionStorage.removeItem('google_signin_in_progress');
+        }
+        
         const { getRedirectResult } = await import('firebase/auth');
         const { auth } = await import('@/lib/firebase/config');
 
         // Add timeout to prevent hanging
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Redirect check timeout')), 3000)
+          setTimeout(() => {
+            console.warn('⚠️ Redirect result check timeout');
+            reject(new Error('Redirect check timeout'));
+          }, 5000)
         );
 
         const result = await Promise.race([
@@ -64,14 +77,21 @@ function SignInContent() {
 
         if (isMounted) {
           if (result && (result as any).user) {
-            console.log('✓ Redirect sign-in successful:', (result as any).user.email);
+            const user = (result as any).user;
+            console.log('✓ Sign-In Page: Redirect sign-in successful:', user.email);
+            console.log('✓ User UID:', user.uid);
+            
             setState((prev) => ({
               ...prev,
               signInMessage: { type: 'success', message: '✓ Signed in with Google! Redirecting...' },
               isProcessingRedirect: false,
             }));
-            setTimeout(() => router.push(redirect), 1500);
+            setTimeout(() => {
+              console.log('🔄 Redirecting to:', redirect);
+              router.push(redirect);
+            }, 1500);
           } else {
+            console.log('✓ Sign-In Page: No redirect result (user came to page normally)');
             setState((prev) => ({
               ...prev,
               isProcessingRedirect: false,
@@ -79,10 +99,11 @@ function SignInContent() {
           }
         }
       } catch (error: any) {
-        console.error('Error handling redirect result:', error);
+        console.error('❌ Error handling redirect result:', error);
         if (isMounted) {
           // If it's a timeout or no-auth-event, just continue
           if (error.code !== 'auth/no-auth-event' && error.message !== 'Redirect check timeout') {
+            console.error('⚠️ Redirect error details:', error.code, error.message);
             setState((prev) => ({
               ...prev,
               signInMessage: { type: 'error', message: error.message || 'Sign in failed' },

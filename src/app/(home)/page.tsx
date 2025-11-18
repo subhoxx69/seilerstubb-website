@@ -870,7 +870,9 @@ function OpeningHoursSection() {
   const [hoursData, setHoursData] = React.useState<any>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const dayNames = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-  const today = new Date().getDay();
+  // Convert JavaScript getDay() (0=Sunday, 1=Monday) to our array index (0=Monday, 6=Sunday)
+  // Formula: (getDay() + 6) % 7 converts 0->6 (Sunday), 1->0 (Monday), etc.
+  const today = (new Date().getDay() + 6) % 7;
 
   // Fetch from API endpoint instead of Firestore directly
   React.useEffect(() => {
@@ -903,8 +905,10 @@ function OpeningHoursSection() {
             { day: 'Samstag', dayNumber: 5, isClosed: data.week.sat.closed, shifts: data.week.sat.intervals },
             { day: 'Sonntag', dayNumber: 6, isClosed: data.week.sun.closed, shifts: data.week.sun.intervals },
           ],
+          deliveryActive: !!data.lieferung,
           deliveryWindows: data.lieferung?.windows || (data.lieferung ? [{ start: data.lieferung.start || '17:00', end: data.lieferung.end || '22:30' }] : [{ start: '17:00', end: '22:30' }]),
           deliveryClosed: data.lieferung?.closed || false,
+          pickupActive: !!data.abholung,
           pickupWindows: data.abholung?.windows || (data.abholung ? [{ start: data.abholung.start || '11:30', end: data.abholung.end || '23:00' }] : [{ start: '11:30', end: '23:00' }]),
           pickupClosed: data.abholung?.closed || false,
           deliveryMinOrder: data.lieferung?.minOrder !== undefined ? data.lieferung.minOrder : 15.00,
@@ -978,7 +982,12 @@ function OpeningHoursSection() {
         </motion.div>
 
         {/* Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        {!isLoading && (
+        <div className={`grid gap-8 mb-12 ${
+          data.deliveryActive && data.pickupActive 
+            ? 'grid-cols-1 md:grid-cols-3' 
+            : 'grid-cols-1 md:grid-cols-2'
+        }`}>
           {/* Opening Hours Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -987,33 +996,36 @@ function OpeningHoursSection() {
             viewport={{ once: true }}
             whileHover={{ y: -8 }}
           >
-            <Card className="p-8 border-0 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 h-full bg-white overflow-hidden group">
-              {/* Background Gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-blue-50 to-cyan-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
-              <div className="relative">
-                {/* Icon */}
-                <motion.div
-                  whileHover={{ scale: 1.1, rotate: -5 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                  className="p-4 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-2xl w-fit mb-6 shadow-lg"
-                >
-                  <Clock className="w-8 h-8 text-white" />
-                </motion.div>
+            <Card className="border-0 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 h-full bg-white overflow-hidden">
+              {/* Top Gradient Header */}
+              <div className="h-32 bg-gradient-to-br from-blue-500 via-blue-600 to-cyan-600 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-2 right-10 w-32 h-32 bg-white rounded-full blur-3xl"></div>
+                </div>
+                <div className="relative h-full flex items-end p-8 pb-6">
+                  <motion.div
+                    whileHover={{ scale: 1.1, rotate: -5 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                    className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg"
+                  >
+                    <Clock className="w-8 h-8 text-white" />
+                  </motion.div>
+                </div>
+              </div>
 
+              {/* Content */}
+              <div className="p-8">
                 {/* Title */}
-                <h3 className="text-2xl font-bold text-slate-900 mb-6 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-blue-600 group-hover:to-cyan-600 group-hover:bg-clip-text transition-all duration-300">
-                  Öffnungszeiten
-                </h3>
+                <h3 className="text-3xl font-bold text-slate-900 mb-8">Öffnungszeiten</h3>
 
                 {/* Hours List */}
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {isLoading ? (
-                    <div className="py-8 text-center">
+                    <div className="py-12 text-center">
                       <motion.div
                         animate={{ rotate: 360 }}
                         transition={{ duration: 2, repeat: Infinity }}
-                        className="w-6 h-6 border-3 border-blue-200 border-t-blue-500 rounded-full mx-auto"
+                        className="w-8 h-8 border-3 border-blue-200 border-t-blue-500 rounded-full mx-auto"
                       />
                     </div>
                   ) : (
@@ -1021,7 +1033,7 @@ function OpeningHoursSection() {
                       const isToday = idx === today;
                       const hoursText = day.isClosed 
                         ? 'Geschlossen' 
-                        : day.shifts.map((s: any) => `${s.start} - ${s.end}`).join(' / ');
+                        : day.shifts.map((s: any) => `${s.start}–${s.end}`).join(' / ');
                       
                       return (
                         <motion.div
@@ -1030,16 +1042,16 @@ function OpeningHoursSection() {
                           whileInView={{ opacity: 1, x: 0 }}
                           transition={{ delay: idx * 0.05 }}
                           viewport={{ once: true }}
-                          className={`flex justify-between items-center py-3 px-4 rounded-xl transition-all duration-300 ${
+                          className={`flex flex-col py-4 px-5 rounded-2xl transition-all duration-300 border-2 ${
                             isToday 
-                              ? 'bg-gradient-to-r from-blue-100 to-cyan-100 border-l-4 border-blue-500' 
-                              : 'bg-slate-50 hover:bg-slate-100'
+                              ? 'bg-gradient-to-r from-blue-100 to-cyan-100 border-blue-300 shadow-md' 
+                              : 'bg-slate-50 border-transparent hover:bg-slate-100 hover:border-blue-100'
                           }`}
                         >
-                          <span className={`text-sm font-medium ${isToday ? 'text-blue-900 font-bold' : 'text-slate-700'}`}>
+                          <span className={`text-sm font-bold tracking-wide mb-2 ${isToday ? 'text-blue-900' : 'text-slate-700'}`}>
                             {day.day}
                           </span>
-                          <span className={`text-sm font-semibold ${isToday ? 'text-blue-600' : day.isClosed ? 'text-red-600' : 'text-slate-600'}`}>
+                          <span className={`text-sm font-bold break-words leading-relaxed ${isToday ? 'text-blue-600' : day.isClosed ? 'text-red-500' : 'text-slate-700'}`}>
                             {hoursText}
                           </span>
                         </motion.div>
@@ -1047,11 +1059,29 @@ function OpeningHoursSection() {
                     })
                   )}
                 </div>
+
+                {/* Today Info */}
+                {!isLoading && (
+                  <div className="mt-8 pt-6 border-t border-slate-200">
+                    {data.weekHours[today]?.isClosed ? (
+                      <div className="p-4 bg-red-50 rounded-xl border border-red-200">
+                        <p className="text-sm font-bold text-red-700">Heute geschlossen</p>
+                        <p className="text-xs text-red-600 mt-1">Nächster Öffnungstag: {data.weekHours[(today + 1) % 7]?.day}</p>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-emerald-50 rounded-xl border border-emerald-200">
+                        <p className="text-sm font-bold text-emerald-700">✓ Heute geöffnet</p>
+                        <p className="text-xs text-emerald-600 mt-1">Genießen Sie unser Restaurant!</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </Card>
           </motion.div>
 
           {/* Delivery Card */}
+          {data.deliveryActive && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -1059,63 +1089,76 @@ function OpeningHoursSection() {
             viewport={{ once: true }}
             whileHover={{ y: -8 }}
           >
-            <Card className="p-8 border-0 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 h-full bg-white overflow-hidden group">
-              {/* Background Gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-orange-50 to-amber-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
-              <div className="relative">
-                {/* Icon */}
-                <motion.div
-                  whileHover={{ scale: 1.1, rotate: 5 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                  className="p-4 bg-gradient-to-br from-orange-500 to-amber-600 rounded-2xl w-fit mb-6 shadow-lg"
-                >
-                  <Truck className="w-8 h-8 text-white" />
-                </motion.div>
-
-                {/* Title */}
-                <h3 className="text-2xl font-bold text-slate-900 mb-6 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-orange-600 group-hover:to-amber-600 group-hover:bg-clip-text transition-all duration-300">
-                  Lieferung
-                </h3>
-
-                {/* Delivery Info */}
-                <div className="space-y-4">
-                  {isLoading ? (
-                    <div className="py-8 text-center">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="w-6 h-6 border-3 border-orange-200 border-t-orange-500 rounded-full mx-auto"
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      <div className="p-4 bg-gradient-to-br from-orange-100 to-amber-100 rounded-xl">
-                        <p className="text-sm font-semibold text-orange-900">Lieferzeiten</p>
-                        {data.deliveryClosed ? (
-                          <p className="text-lg font-bold text-orange-600 mt-1">Geschlossen</p>
-                        ) : (
-                          <p className="text-lg font-bold text-orange-600 mt-1">
-                            {formatTimeWindows(data.deliveryWindows)}
-                          </p>
-                        )}
-                      </div>
-                      <div className="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                        <p className="text-sm font-semibold text-slate-700">Mindestbestellung</p>
-                        <p className="text-sm text-slate-600 mt-1">Ab €{data.deliveryMinOrder.toFixed(2)}</p>
-                      </div>
-                      <div className="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                        <p className="text-sm font-semibold text-slate-700">Liefergebühr</p>
-                        <p className="text-sm text-slate-600 mt-1">€{data.deliveryFee.toFixed(2)}</p>
-                      </div>
-                    </>
-                  )}
+            <Card className="border-0 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 h-full bg-white overflow-hidden">
+              {/* Top Gradient Header */}
+              <div className="h-32 bg-gradient-to-br from-orange-500 via-orange-600 to-amber-600 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-2 right-10 w-32 h-32 bg-white rounded-full blur-3xl"></div>
                 </div>
+                <div className="relative h-full flex items-end p-8 pb-6">
+                  <motion.div
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                    className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg"
+                  >
+                    <Truck className="w-8 h-8 text-white" />
+                  </motion.div>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-8">
+                {/* Title */}
+                <h3 className="text-3xl font-bold text-slate-900 mb-8">Lieferung</h3>
+
+                {/* Loading State */}
+                {isLoading ? (
+                  <div className="py-12 text-center">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="w-8 h-8 border-3 border-orange-200 border-t-orange-500 rounded-full mx-auto"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Times Box */}
+                    <div className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 rounded-2xl border-2 border-orange-200 hover:border-orange-300 transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-bold text-orange-700 uppercase tracking-widest">Lieferzeiten</p>
+                        <Clock className="w-5 h-5 text-orange-500" />
+                      </div>
+                      {data.deliveryClosed ? (
+                        <p className="text-3xl font-bold text-orange-600">Geschlossen</p>
+                      ) : (
+                        <p className="text-3xl font-bold text-orange-700 break-words leading-tight">
+                          {formatTimeWindows(data.deliveryWindows)}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="p-5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200 hover:border-orange-300 transition-all">
+                        <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-2">Mindestbestellung</p>
+                        <p className="text-2xl font-bold text-slate-900">€{data.deliveryMinOrder.toFixed(2)}</p>
+                        <p className="text-xs text-slate-500 mt-1">für kostenlose Lieferung</p>
+                      </div>
+                      <div className="p-5 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border border-orange-200 hover:border-orange-300 transition-all">
+                        <p className="text-xs font-bold text-orange-700 uppercase tracking-widest mb-2">Liefergebühr</p>
+                        <p className="text-2xl font-bold text-orange-600">€{data.deliveryFee.toFixed(2)}</p>
+                        <p className="text-xs text-orange-600 mt-1">unter Mindestbestellung</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           </motion.div>
+          )}
 
           {/* Pickup Card */}
+          {data.pickupActive && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -1123,62 +1166,79 @@ function OpeningHoursSection() {
             viewport={{ once: true }}
             whileHover={{ y: -8 }}
           >
-            <Card className="p-8 border-0 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 h-full bg-white overflow-hidden group">
-              {/* Background Gradient */}
-              <div className="absolute inset-0 bg-gradient-to-br from-emerald-50 to-teal-50 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
-              <div className="relative">
-                {/* Icon */}
-                <motion.div
-                  whileHover={{ scale: 1.1, rotate: -5 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                  className="p-4 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl w-fit mb-6 shadow-lg"
-                >
-                  <Utensils className="w-8 h-8 text-white" />
-                </motion.div>
+            <Card className="border-0 rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-500 h-full bg-white overflow-hidden">
+              {/* Top Gradient Header */}
+              <div className="h-32 bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 relative overflow-hidden">
+                <div className="absolute inset-0 opacity-10">
+                  <div className="absolute top-2 right-10 w-32 h-32 bg-white rounded-full blur-3xl"></div>
+                </div>
+                <div className="relative h-full flex items-end p-8 pb-6">
+                  <motion.div
+                    whileHover={{ scale: 1.1, rotate: -5 }}
+                    transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                    className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg"
+                  >
+                    <Utensils className="w-8 h-8 text-white" />
+                  </motion.div>
+                </div>
+              </div>
 
+              {/* Content */}
+              <div className="p-8">
                 {/* Title */}
-                <h3 className="text-2xl font-bold text-slate-900 mb-6 group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-emerald-600 group-hover:to-teal-600 group-hover:bg-clip-text transition-all duration-300">
-                  Abholung
-                </h3>
+                <h3 className="text-3xl font-bold text-slate-900 mb-8">Abholung</h3>
 
-                {/* Pickup Info */}
-                <div className="space-y-4">
-                  {isLoading ? (
-                    <div className="py-8 text-center">
-                      <motion.div
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="w-6 h-6 border-3 border-emerald-200 border-t-emerald-500 rounded-full mx-auto"
-                      />
+                {/* Loading State */}
+                {isLoading ? (
+                  <div className="py-12 text-center">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="w-8 h-8 border-3 border-emerald-200 border-t-emerald-500 rounded-full mx-auto"
+                    />
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Times Box */}
+                    <div className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl border-2 border-emerald-200 hover:border-emerald-300 transition-colors">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-sm font-bold text-emerald-700 uppercase tracking-widest">Abholzeiten</p>
+                        <Clock className="w-5 h-5 text-emerald-500" />
+                      </div>
+                      {data.pickupClosed ? (
+                        <p className="text-3xl font-bold text-emerald-600">Geschlossen</p>
+                      ) : (
+                        <p className="text-3xl font-bold text-emerald-700 break-words leading-tight">
+                          {formatTimeWindows(data.pickupWindows)}
+                        </p>
+                      )}
                     </div>
-                  ) : (
-                    <>
-                      <div className="p-4 bg-gradient-to-br from-emerald-100 to-teal-100 rounded-xl">
-                        <p className="text-sm font-semibold text-emerald-900">Abholzeiten</p>
-                        {data.pickupClosed ? (
-                          <p className="text-lg font-bold text-emerald-600 mt-1">Geschlossen</p>
+
+                    {/* Info Grid */}
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="p-5 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border border-slate-200 hover:border-emerald-300 transition-all">
+                        <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-2">Mindestbestellung</p>
+                        {data.pickupMinOrder && data.pickupMinOrder > 0 ? (
+                          <>
+                            <p className="text-2xl font-bold text-slate-900">Ab €{data.pickupMinOrder.toFixed(2)}</p>
+                            <p className="text-xs text-slate-500 mt-1">Empfohlen</p>
+                          </>
                         ) : (
-                          <p className="text-lg font-bold text-emerald-600 mt-1">
-                            {formatTimeWindows(data.pickupWindows)}
-                          </p>
+                          <>
+                            <p className="text-2xl font-bold text-emerald-600">Keine</p>
+                            <p className="text-xs text-emerald-600 mt-1">Kostenlos bestellen</p>
+                          </>
                         )}
                       </div>
-                      <div className="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                        <p className="text-sm font-semibold text-slate-700">Mindestbestellung</p>
-                        <p className="text-sm text-slate-600 mt-1">
-                          {data.pickupMinOrder && data.pickupMinOrder > 0
-                            ? `Ab €${data.pickupMinOrder.toFixed(2)}`
-                            : 'Keine Mindestbestellung'}
-                        </p>
-                      </div>
-                    </>
-                  )}
-                </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </Card>
           </motion.div>
+          )}
         </div>
+        )}
 
         {/* Call to Action */}
         <motion.div

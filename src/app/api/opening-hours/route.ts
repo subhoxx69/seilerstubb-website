@@ -264,14 +264,15 @@ export async function POST(request: NextRequest) {
       week: body.week,
       exceptions: body.exceptions || {},
       slot: body.slot,
-      lieferung: body.lieferung,
-      abholung: body.abholung,
+      ...(body.lieferung && { lieferung: body.lieferung }),
+      ...(body.abholung && { abholung: body.abholung }),
       updatedAt: Date.now(),
     };
 
     // Save to Firestore using Admin SDK
     let adminApp: any;
     let adminDb: any;
+    let firebaseAdmin: any;
 
     try {
       const { initializeApp, getApp } = await import('firebase-admin/app');
@@ -298,6 +299,7 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      firebaseAdmin = await import('firebase-admin');
       const { getFirestore } = await import('firebase-admin/firestore');
       adminDb = getFirestore(adminApp);
     } catch (adminError) {
@@ -308,8 +310,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // For merge operations, prepare the data object
     const docRef = adminDb.collection('settings').doc('openingHours');
-    await docRef.set(firestoreData, { merge: true });
+    
+    // Prepare merge data with field deletion for deactivated services
+    const mergeData: any = JSON.parse(JSON.stringify(firestoreData)); // Clean copy
+    mergeData.updatedAt = firebaseAdmin.firestore.FieldValue.serverTimestamp();
+    
+    // If lieferung or abholung are not provided, delete them from Firestore
+    if (!body.lieferung) {
+      mergeData.lieferung = firebaseAdmin.firestore.FieldValue.delete();
+      console.log('🗑️ Deleting lieferung field');
+    }
+    if (!body.abholung) {
+      mergeData.abholung = firebaseAdmin.firestore.FieldValue.delete();
+      console.log('🗑️ Deleting abholung field');
+    }
+    
+    await docRef.set(mergeData, { merge: true });
 
     console.log('✅ Successfully saved opening hours');
     // Clear cache after successful update

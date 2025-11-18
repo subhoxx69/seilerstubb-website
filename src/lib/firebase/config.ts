@@ -70,26 +70,26 @@ export const signInWithGoogle = async () => {
     
     console.log(`Localhost/Local IP: ${isLocalhost}`);
     
-    // Always check for redirect result first (important for mobile flows)
-    try {
-      const redirectResult = await getRedirectResult(auth);
-      if (redirectResult && redirectResult.user) {
-        console.log('✅ Google redirect sign-in completed:', redirectResult.user.email);
-        return redirectResult;
-      }
-    } catch (redirectError: any) {
-      if (redirectError.code !== 'auth/no-auth-event') {
-        console.error('Error checking redirect result:', redirectError);
-      }
-    }
-    
     if (!isLocalhost && isMobile) {
-      // ONLY use redirect for production mobile
+      // 📱 MOBILE PRODUCTION: Use redirect flow
       console.log('📱 Production mobile - using redirect flow');
+      
+      // Store the current page so we return to it after auth
+      const redirectUrl = window.location.href;
+      sessionStorage.setItem('google_signin_redirect_url', redirectUrl);
+      console.log('💾 Stored redirect URL:', redirectUrl);
+      
+      // Clear any previous auth attempt
+      sessionStorage.removeItem('google_signin_in_progress');
+      
+      // Mark that we're starting auth
+      sessionStorage.setItem('google_signin_in_progress', 'true');
+      
+      // IMPORTANT: Use redirect - this is the proper flow for mobile browsers
       await signInWithRedirect(auth, googleProvider);
-      return null;
+      return null; // Never reached, page will redirect
     } else {
-      // Use popup for localhost/local IP (most reliable for development)
+      // 🖥️ DESKTOP or LOCALHOST: Use popup flow (better UX for desktop/dev)
       console.log('🔄 Using popup flow (localhost/local or desktop)');
       try {
         const result = await signInWithPopup(auth, googleProvider);
@@ -98,6 +98,8 @@ export const signInWithGoogle = async () => {
       } catch (popupError: any) {
         console.warn('Popup failed:', popupError.code);
         // Fallback to redirect if popup fails
+        console.log('Falling back to redirect flow...');
+        sessionStorage.setItem('google_signin_in_progress', 'true');
         await signInWithRedirect(auth, googleProvider);
         return null;
       }
@@ -111,6 +113,7 @@ export const signInWithGoogle = async () => {
     if (error.code === 'auth/popup-blocked') {
       console.log('Popup blocked, using redirect flow');
       try {
+        sessionStorage.setItem('google_signin_in_progress', 'true');
         await signInWithRedirect(auth, googleProvider);
         return null;
       } catch (redirectError) {

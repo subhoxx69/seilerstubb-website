@@ -74,19 +74,19 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
     try {
       await signOutUser();
       setIsMenuOpen(false);
-      toast.success('Signed out successfully');
+      toast.success('Erfolgreich abgemeldet');
     } catch (error) {
       console.error('Logout failed:', error);
-      toast.error('Failed to sign out');
+      toast.error('Abmeldung fehlgeschlagen');
     }
   };
 
   const navLinks = [
-    { label: 'Home', path: '/' },
-    { label: 'Menu', path: '/menu' },
-    { label: 'Reservation', path: '/reservation' },
-    { label: 'Gallery', path: '/gallery' },
-    { label: 'Contact', path: '/contact' },
+    { label: 'Startseite', path: '/' },
+    { label: 'Speisekarte', path: '/menu' },
+    { label: 'Reservierung', path: '/reservation' },
+    { label: 'Galerie', path: '/gallery' },
+    { label: 'Kontakt', path: '/contact' },
   ];
 
   if (shouldHideNavbar) {
@@ -270,7 +270,7 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                     whileHover={{ opacity: 1, y: 0 }}
                     style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
                   >
-                    Sign In
+                    Anmelden
                   </motion.span>
                 </motion.button>
               </Link>
@@ -384,7 +384,7 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                         {/* Menu Header */}
                         <div className="px-4 py-4 bg-gradient-to-r from-orange-50 to-amber-50 border-b border-slate-200">
                           <p className="text-sm font-bold text-slate-900 truncate">{user.email}</p>
-                          <p className="text-xs text-slate-600 mt-1">{isAdmin ? '👑 Administrator Account' : '✓ Member Account'}</p>
+                          <p className="text-xs text-slate-600 mt-1">{isAdmin ? '👑 Administrator-Konto' : '✓ Benutzerkonto'}</p>
                         </div>
 
                         {/* Menu Items */}
@@ -399,8 +399,8 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                                 <User className="w-4 h-4 text-blue-600 stroke-current" strokeWidth={2.5} />
                               </div>
                               <div className="flex-1">
-                                <p className="text-sm font-semibold text-slate-900">Profile Settings</p>
-                                <p className="text-xs text-slate-500">Edit profile & security</p>
+                                <p className="text-sm font-semibold text-slate-900">Profileinstellungen</p>
+                                <p className="text-xs text-slate-500">Profil & Sicherheit bearbeiten</p>
                               </div>
                             </motion.div>
                           </Link>
@@ -415,8 +415,8 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                                 <Calendar className="w-4 h-4 text-amber-600 stroke-current" strokeWidth={2.5} />
                               </div>
                               <div className="flex-1">
-                                <p className="text-sm font-semibold text-slate-900">My Reservations</p>
-                                <p className="text-xs text-slate-500">View & edit bookings</p>
+                                <p className="text-sm font-semibold text-slate-900">Meine Reservierungen</p>
+                                <p className="text-xs text-slate-500">Reservierungen anzeigen & bearbeiten</p>
                               </div>
                             </motion.div>
                           </Link>
@@ -431,8 +431,8 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                                 <Mail className="w-4 h-4 text-green-600 stroke-current" strokeWidth={2.5} />
                               </div>
                               <div className="flex-1">
-                                <p className="text-sm font-semibold text-slate-900">My Messages</p>
-                                <p className="text-xs text-slate-500">Contact conversations</p>
+                                <p className="text-sm font-semibold text-slate-900">Meine Nachrichten</p>
+                                <p className="text-xs text-slate-500">Kontaktgespräche</p>
                               </div>
                             </motion.div>
                           </Link>
@@ -453,8 +453,8 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                               <LogOut className="w-4 h-4 text-red-600 stroke-current" strokeWidth={2.5} />
                             </div>
                             <div className="flex-1">
-                              <p className="text-sm font-semibold text-slate-900">Sign Out</p>
-                              <p className="text-xs text-slate-500">Logout from account</p>
+                              <p className="text-sm font-semibold text-slate-900">Abmelden</p>
+                              <p className="text-xs text-slate-500">Von Konto abmelden</p>
                             </div>
                           </motion.button>
                         </div>
@@ -597,7 +597,7 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                       />
                       <LogIn className="w-5 h-5 transition-transform duration-300 relative z-10 group-hover:translate-x-1 stroke-current" strokeWidth={2.5} />
                       <span className="relative z-10" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", letterSpacing: '0.3px', fontWeight: 700 }}>
-                        Sign In
+                        Anmelden
                       </span>
                     </motion.button>
                   </Link>
@@ -616,7 +616,7 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                           />
                           <Shield className="w-5 h-5 relative z-10 stroke-current" strokeWidth={2.2} />
                           <span className="relative z-10" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", letterSpacing: '0.3px', fontWeight: 700 }}>
-                            Admin Panel
+                            Admin-Dashboard
                           </span>
                         </motion.button>
                       </Link>
@@ -656,7 +656,7 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                           <p className="text-sm font-bold text-slate-900 truncate" style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif", letterSpacing: '0.3px' }}>
                             {user.email?.split('@')[0]}
                           </p>
-                          <p className="text-xs text-slate-500 font-semibold">{isAdmin ? '👑 Administrator' : '✓ Member'}</p>
+                          <p className="text-xs text-slate-500 font-semibold">{isAdmin ? '👑 Administrator' : '✓ Benutzer'}</p>
                         </div>
                       </div>
 
@@ -682,8 +682,8 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                         >
                           <Calendar className="w-5 h-5 text-amber-600 stroke-current flex-shrink-0" strokeWidth={2.5} />
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-900">My Reservations</p>
-                            <p className="text-xs text-slate-500">View & edit bookings</p>
+                            <p className="text-sm font-semibold text-slate-900">Meine Reservierungen</p>
+                            <p className="text-xs text-slate-500">Reservierungen anzeigen & bearbeiten</p>
                           </div>
                         </motion.div>
                       </Link>
@@ -696,8 +696,8 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                         >
                           <Mail className="w-5 h-5 text-green-600 stroke-current flex-shrink-0" strokeWidth={2.5} />
                           <div className="flex-1">
-                            <p className="text-sm font-semibold text-slate-900">My Messages</p>
-                            <p className="text-xs text-slate-500">Contact conversations</p>
+                            <p className="text-sm font-semibold text-slate-900">Meine Nachrichten</p>
+                            <p className="text-xs text-slate-500">Kontaktgespräche</p>
                           </div>
                         </motion.div>
                       </Link>
@@ -713,8 +713,8 @@ export default function Navbar({ hideOnRoutes = [] }: NavbarProps) {
                       >
                         <LogOut className="w-5 h-5 text-red-600 stroke-current flex-shrink-0" strokeWidth={2.5} />
                         <div className="flex-1">
-                          <p className="text-sm font-semibold text-slate-900">Sign Out</p>
-                          <p className="text-xs text-slate-500">Logout from account</p>
+                          <p className="text-sm font-semibold text-slate-900">Abmelden</p>
+                          <p className="text-xs text-slate-500">Von Konto abmelden</p>
                         </div>
                       </motion.button>
                     </motion.div>

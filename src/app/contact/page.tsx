@@ -228,10 +228,25 @@ export default function ContactPage() {
 
       setSubmitStatus('success');
       
-      // Save phone number for autofill but keep other data
+      // ✅ ONLY clear subject and text after backend confirms success
+      // Keep user details (firstName, lastName, email, phone) in localStorage
       if (typeof window !== 'undefined') {
+        // Save phone number for autofill
         const phoneStorage = { phone: formData.phone };
         localStorage.setItem('contact_phone_autofill', JSON.stringify(phoneStorage));
+        
+        // Clear ONLY subject and text, keep other user details
+        const clearedFormData = {
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          subject: '', // ✅ CLEAR subject
+          text: '', // ✅ CLEAR text
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(clearedFormData));
+        
+        console.log('🧹 Cleared subject and text from localStorage after successful submission');
       }
 
       setTimeout(() => {
@@ -244,6 +259,8 @@ export default function ContactPage() {
       setErrorMessage(
         error instanceof Error ? error.message : 'An error occurred'
       );
+      // ❌ DO NOT clear subject and text if there was an error
+      console.log('⚠️ Form submission failed - subject and text NOT cleared');
     } finally {
       setIsSubmitting(false);
     }

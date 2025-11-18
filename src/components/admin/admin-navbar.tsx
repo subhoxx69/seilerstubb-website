@@ -28,7 +28,7 @@ export function AdminNavbar({ children }: { children: React.ReactNode }) {
 
   const navLinks = [
     { 
-      label: 'Dashboard', 
+      label: 'Übersicht', 
       path: '/routes/admin', 
       icon: <LayoutDashboard className="w-5 h-5" /> 
     },
@@ -43,17 +43,17 @@ export function AdminNavbar({ children }: { children: React.ReactNode }) {
       icon: <Zap className="w-5 h-5" /> 
     },
     { 
-      label: 'Menu Management', 
+      label: 'Speisekarte Verwaltung', 
       path: '/routes/admin/menu', 
       icon: <FileText className="w-5 h-5" /> 
     },
     { 
-      label: 'Gallery Management', 
+      label: 'Galerie Verwaltung', 
       path: '/routes/admin/gallery', 
       icon: <ImageIcon className="w-5 h-5" /> 
     },
     { 
-      label: 'Reservations', 
+      label: 'Reservierungen', 
       path: '/routes/admin/reservations', 
       icon: <Calendar className="w-5 h-5" /> 
     },
@@ -63,17 +63,17 @@ export function AdminNavbar({ children }: { children: React.ReactNode }) {
       icon: <Mail className="w-5 h-5" /> 
     },
     { 
-      label: 'User Management', 
+      label: 'Benutzerverwaltung', 
       path: '/routes/admin/users', 
       icon: <Users className="w-5 h-5" /> 
     },
     { 
-      label: 'Öffnungszeiten Einstellungen', 
+      label: 'Öffnungszeiten', 
       path: '/routes/admin/opening-hours', 
       icon: <Settings className="w-5 h-5" /> 
     },
     { 
-      label: 'Maintenance Mode', 
+      label: 'Wartungsmodus', 
       path: '/routes/admin/maintenance', 
       icon: <AlertTriangle className="w-5 h-5 text-red-500" /> 
     },
@@ -139,7 +139,7 @@ export function AdminNavbar({ children }: { children: React.ReactNode }) {
               <button 
                 onClick={handleLogout}
                 className="p-2 text-gray-500 rounded-md hover:bg-gray-100 hover:text-red-500"
-                title="Sign Out"
+                title="Abmelden"
               >
                 <LogOut className="w-5 h-5" />
               </button>

@@ -236,10 +236,28 @@ export default function ReservationPage() {
 
       // Import modules
       const { auth } = await import('@/lib/firebase/config');
+      const { useRouter } = await import('next/navigation');
 
       // Get current user ID if authenticated
       const currentUser = auth.currentUser;
-      const userId = currentUser?.uid || null;
+      const isLoggedIn = !!currentUser;
+
+      // Get client IP address for non-logged-in users
+      let userId: string;
+      if (currentUser) {
+        // Use Firebase UID for logged-in users
+        userId = currentUser.uid;
+      } else {
+        // Fetch client IP for non-logged-in users
+        try {
+          const ipResponse = await fetch('/api/get-client-ip');
+          const ipData = await ipResponse.json();
+          userId = ipData.ip || 'unknown-client';
+        } catch (error) {
+          console.error('Error fetching client IP:', error);
+          userId = 'unknown-client';
+        }
+      }
 
       // Save user info to localStorage (excluding notes and people)
       saveUserReservationInfo({
@@ -267,28 +285,31 @@ export default function ReservationPage() {
         },
         body: JSON.stringify({
           firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
+          lastName: formData.lastName || '',
+          email: formData.email || '',
           phone: formData.phone,
           date: formData.date,
           time: formData.time,
           people: formData.people,
           bereich: formData.bereich,
-          notes: formData.notes,
+          notes: formData.notes || '',
           userId: userId,
         }),
       });
 
       const result = await response.json();
+      console.log('📝 Reservation response:', { status: response.status, result });
 
       if (!response.ok) {
         setSendingStatus('error');
-        setSendingMessage(result.error || 'Fehler beim Erstellen der Reservierung');
-        console.error('❌ Reservation creation failed:', result);
+        const errorDetails = result.details || result.error || 'Fehler beim Erstellen der Reservierung';
+        setSendingMessage(errorDetails);
+        console.error('❌ Reservation creation failed:', { status: response.status, result });
         return;
       }
 
-      console.log('✅ Reservation created successfully:', result.reservationId);
+      const reservationId = result.reservationId;
+      console.log('✅ Reservation created successfully:', reservationId);
 
       // Move to verification step
       setSendingStatus('verifying');
@@ -307,7 +328,6 @@ export default function ReservationPage() {
         await new Promise(resolve => setTimeout(resolve, 500));
 
         // For now, we trust the API response
-        // In production, you could do additional verification
         verificationSuccess = true;
       }
 
@@ -317,11 +337,20 @@ export default function ReservationPage() {
           'Reservierung erfolgreich gesendet! Sie erhalten innerhalb von 24 Stunden eine E-Mail mit der Bestätigung oder Absage.'
         );
 
-        // Auto-close after 5 seconds
-        setTimeout(() => {
-          setShowSendingOverlay(false);
-          window.location.href = '/';
-        }, 5000);
+        // Wait 3 seconds before redirecting
+        await new Promise(resolve => setTimeout(resolve, 3000));
+
+        setShowSendingOverlay(false);
+
+        // Redirect based on login status
+        if (isLoggedIn) {
+          // For logged-in users: show calendar modal
+          // This will be handled by redirecting to a page that shows the modal
+          window.location.href = `/reservation/confirm?id=${reservationId}&showCalendar=true`;
+        } else {
+          // For non-logged-in users: redirect to details page
+          window.location.href = `/reservation/details/${reservationId}`;
+        }
       } else {
         setSendingStatus('error');
         setSendingMessage('Reservierung konnte nicht überprüft werden. Bitte versuchen Sie es erneut.');
