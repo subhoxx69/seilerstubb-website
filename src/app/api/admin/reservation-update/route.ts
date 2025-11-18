@@ -10,13 +10,17 @@ import { MAIN_ADMIN_EMAILS } from '@/lib/firebase/admin-constants';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get auth header
-    const authHeader = request.headers.get('Authorization');
-    console.log('📨 Received request to /api/admin/reservation-update');
-    console.log('🔐 Authorization header present:', !!authHeader);
+    console.log('📨 === Received request to /api/admin/reservation-update ===');
     
-    if (!authHeader?.startsWith('Bearer ')) {
-      console.error('❌ Missing or invalid authorization header');
+    // Get auth header - case insensitive
+    const authHeader = request.headers.get('Authorization') || request.headers.get('authorization');
+    console.log('� All headers:', Array.from(request.headers.entries()).map(([k, v]) => `${k}: ${v.substring(0, 50)}...`));
+    console.log('🔐 Authorization header present:', !!authHeader);
+    console.log('🔐 Authorization header value:', authHeader ? `${authHeader.substring(0, 50)}...` : 'null');
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.error('❌ Missing or invalid authorization header - expected "Bearer <token>"');
+      console.error('   Received:', authHeader);
       return NextResponse.json(
         { success: false, error: 'Missing or invalid authorization header' },
         { status: 401 }
@@ -25,6 +29,14 @@ export async function POST(request: NextRequest) {
 
     const idToken = authHeader.slice(7); // Remove "Bearer " prefix
     console.log('🔑 Token extracted, length:', idToken.length);
+    
+    if (!idToken || idToken.length === 0) {
+      console.error('❌ Token is empty after extracting from Bearer');
+      return NextResponse.json(
+        { success: false, error: 'Empty token' },
+        { status: 401 }
+      );
+    }
 
     // Verify token and get user
     let userEmail: string | undefined;
