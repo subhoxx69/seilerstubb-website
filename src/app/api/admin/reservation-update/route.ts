@@ -12,7 +12,11 @@ export async function POST(request: NextRequest) {
   try {
     // Get auth header
     const authHeader = request.headers.get('Authorization');
+    console.log('📨 Received request to /api/admin/reservation-update');
+    console.log('🔐 Authorization header present:', !!authHeader);
+    
     if (!authHeader?.startsWith('Bearer ')) {
+      console.error('❌ Missing or invalid authorization header');
       return NextResponse.json(
         { success: false, error: 'Missing or invalid authorization header' },
         { status: 401 }
@@ -20,6 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     const idToken = authHeader.slice(7); // Remove "Bearer " prefix
+    console.log('🔑 Token extracted, length:', idToken.length);
 
     // Verify token and get user
     let userEmail: string | undefined;
@@ -32,7 +37,9 @@ export async function POST(request: NextRequest) {
       
       try {
         adminApp = getApp();
+        console.log('✅ Using existing Firebase admin app');
       } catch {
+        console.log('📱 Initializing new Firebase admin app');
         // Initialize admin app - use individual env vars instead of JSON
         const serviceAccount = {
           type: process.env.FIREBASE_SERVICE_ACCOUNT_TYPE,
@@ -51,13 +58,16 @@ export async function POST(request: NextRequest) {
         adminApp = initializeApp({
           credential: cert(serviceAccount),
         });
+        console.log('✅ Firebase admin app initialized');
       }
 
       const adminAuth = getAuth(adminApp);
+      console.log('🔐 Verifying ID token...');
       const decodedToken = await adminAuth.verifyIdToken(idToken);
       userEmail = decodedToken.email;
+      console.log('✅ Token verified, user email:', userEmail);
     } catch (tokenError) {
-      console.error('Token verification failed:', tokenError);
+      console.error('❌ Token verification failed:', tokenError);
       return NextResponse.json(
         { success: false, error: 'Invalid or expired token' },
         { status: 401 }

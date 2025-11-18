@@ -283,10 +283,20 @@ export default function LiveReservationsPage() {
       const currentUser = auth.currentUser;
       if (!currentUser) {
         toast.error('Benutzer nicht authentifiziert');
+        addLog('❌ Benutzer nicht authentifiziert', 'error');
         return;
       }
 
       const idToken = await currentUser.getIdToken();
+      
+      if (!idToken) {
+        toast.error('Authentifizierungstoken konnte nicht abgerufen werden');
+        addLog('❌ Authentifizierungstoken konnte nicht abgerufen werden', 'error');
+        return;
+      }
+
+      console.log('🔑 ID Token obtained, updating reservation...');
+      addLog('🔑 Authentifizierungstoken erhalten, aktualisiere Reservierung...', 'info');
 
       // Update status
       const result = await updateReservationStatusWithNotification(
@@ -368,10 +378,20 @@ export default function LiveReservationsPage() {
       const currentUser = auth.currentUser;
       if (!currentUser) {
         toast.error('Benutzer nicht authentifiziert');
+        addLog('❌ Benutzer nicht authentifiziert', 'error');
         return;
       }
 
       const idToken = await currentUser.getIdToken();
+      
+      if (!idToken) {
+        toast.error('Authentifizierungstoken konnte nicht abgerufen werden');
+        addLog('❌ Authentifizierungstoken konnte nicht abgerufen werden', 'error');
+        return;
+      }
+
+      console.log('🔑 ID Token obtained, updating reservation...');
+      addLog('🔑 Authentifizierungstoken erhalten, aktualisiere Reservierung...', 'info');
 
       // Update status with decline reason
       const result = await updateReservationStatusWithNotification(
