@@ -13,20 +13,20 @@ try {
     // Not initialized yet, proceed with initialization
     
     // Initialize from environment variables
-    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
-    const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-    const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
+    const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || process.env.FIREBASE_PROJECT_ID;
+    const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
+    const privateKey = (process.env.FIREBASE_PRIVATE_KEY || process.env.FIREBASE_ADMIN_PRIVATE_KEY)?.replace(/\\n/g, '\n');
 
     console.log('\n🔐 Firebase Admin SDK Initialization:');
-    console.log('   - NEXT_PUBLIC_FIREBASE_PROJECT_ID:', projectId ? '✅ Present' : '❌ Missing');
-    console.log('   - FIREBASE_ADMIN_CLIENT_EMAIL:', clientEmail ? '✅ Present' : '❌ Missing');
-    console.log('   - FIREBASE_ADMIN_PRIVATE_KEY:', privateKey ? '✅ Present' : '❌ Missing');
+    console.log('   - Project ID:', projectId ? '✅ Present' : '❌ Missing');
+    console.log('   - Client Email:', clientEmail ? '✅ Present' : '❌ Missing');
+    console.log('   - Private Key:', privateKey ? '✅ Present' : '❌ Missing');
 
     if (!projectId || !clientEmail || !privateKey) {
       const missingVars: string[] = [];
-      if (!projectId) missingVars.push('NEXT_PUBLIC_FIREBASE_PROJECT_ID');
-      if (!clientEmail) missingVars.push('FIREBASE_ADMIN_CLIENT_EMAIL');
-      if (!privateKey) missingVars.push('FIREBASE_ADMIN_PRIVATE_KEY');
+      if (!projectId) missingVars.push('FIREBASE_PROJECT_ID or NEXT_PUBLIC_FIREBASE_PROJECT_ID');
+      if (!clientEmail) missingVars.push('FIREBASE_CLIENT_EMAIL or FIREBASE_ADMIN_CLIENT_EMAIL');
+      if (!privateKey) missingVars.push('FIREBASE_PRIVATE_KEY or FIREBASE_ADMIN_PRIVATE_KEY');
       
       throw new Error(
         `Missing Firebase Admin credentials in environment variables:\n` +
@@ -34,7 +34,7 @@ try {
         `Please:\n` +
         `1. Create a .env.local file in the project root\n` +
         `2. Get credentials from Firebase Console → Project Settings → Service Accounts\n` +
-        `3. Add FIREBASE_ADMIN_CLIENT_EMAIL and FIREBASE_ADMIN_PRIVATE_KEY\n` +
+        `3. Add FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY\n` +
         `4. Restart the development server`
       );
     }

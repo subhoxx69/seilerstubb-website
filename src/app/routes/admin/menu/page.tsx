@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Plus, Edit2, Trash2, Loader, Search, Image as ImageIcon, X, Check, AlertCircle, Download, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { CATEGORIES } from '@/lib/categories';
+import CategoryManagementComponent from '@/components/admin/category-management';
+import CategoryPicker from '@/components/shared/category-picker';
 import { 
   subscribeToAllMenuItems,
   addMenuItem, 
@@ -77,6 +79,7 @@ export default function AdminMenuPage() {
   const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
   const [isDeleteAllConfirmOpen, setIsDeleteAllConfirmOpen] = useState(false);
   const [isDeletingAll, setIsDeletingAll] = useState(false);
+  const [activeTab, setActiveTab] = useState<'items' | 'categories'>('items');
 
   // Set up real-time listener for menu items
   useEffect(() => {
@@ -784,96 +787,141 @@ export default function AdminMenuPage() {
 
   return (
     <div className="space-y-6 p-6">
-      {/* Header */}
+      {/* Header & Tab Navigation */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="flex justify-between items-start gap-4"
+        className="space-y-4"
       >
         <div>
           <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            Menu Management
+            🍽️ Menu & Categories Management
           </h1>
-          <p className="text-slate-600">Manage restaurant menu items ({filteredItems.length} items)</p>
+          <p className="text-slate-600">
+            {activeTab === 'items' 
+              ? `Manage restaurant menu items (${filteredItems.length} items)`
+              : 'Manage category order and emojis'}
+          </p>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          {/* Download JSON Button */}
-          <Button 
-            onClick={handleDownloadJSON}
-            className="bg-green-600 hover:bg-green-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold"
+        {/* Tab Navigation */}
+        <div className="flex gap-2 bg-slate-100 rounded-lg p-1 w-fit">
+          <motion.button
+            onClick={() => setActiveTab('items')}
+            className={`px-6 py-2.5 rounded-lg font-semibold transition-all ${
+              activeTab === 'items'
+                ? 'bg-white text-orange-600 shadow-md'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            <Download className="w-5 h-5" />
-            Download Menu (.json)
-          </Button>
-
-          {/* Upload JSON Button */}
-          <Button 
-            onClick={() => jsonFileInputRef.current?.click()}
-            disabled={isImportingJSON}
-            className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold"
+            📋 Menu Items
+          </motion.button>
+          <motion.button
+            onClick={() => setActiveTab('categories')}
+            className={`px-6 py-2.5 rounded-lg font-semibold transition-all ${
+              activeTab === 'categories'
+                ? 'bg-white text-orange-600 shadow-md'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
           >
-            {isImportingJSON ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" />
-                Importing...
-              </>
-            ) : (
-              <>
-                <Upload className="w-5 h-5" />
-                Upload Menu (.json)
-              </>
-            )}
-          </Button>
+            📂 Categories
+          </motion.button>
+        </div>
+      </motion.div>
 
-          {/* Text to JSON Converter Button */}
-          <Button 
-            onClick={() => setIsTextConverterOpen(true)}
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold"
+      {/* Tab Content */}
+      <AnimatePresence mode="wait">
+        {activeTab === 'items' ? (
+          <motion.div
+            key="items-tab"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+            className="space-y-6"
           >
-            📝 Convert Text to JSON
-          </Button>
-
-          {/* Delete All Button */}
-          <Button 
-            onClick={() => setIsDeleteAllConfirmOpen(true)}
-            disabled={items.length === 0 || isDeletingAll}
-            className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isDeletingAll ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" />
-                Deleting...
-              </>
-            ) : (
-              <>
-                <Trash2 className="w-5 h-5" />
-                Delete All Items
-              </>
-            )}
-          </Button>
-
-          {/* Add Menu Item Button */}
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
+            {/* Action Buttons */}
+            <div className="flex gap-2 flex-wrap">
+              {/* Download JSON Button */}
               <Button 
-                onClick={handleOpenNewDialog}
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold"
+                onClick={handleDownloadJSON}
+                className="bg-green-600 hover:bg-green-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold"
               >
-                <Plus className="w-5 h-5" />
-                Add Menu Item
+                <Download className="w-5 h-5" />
+                Download Menu (.json)
               </Button>
-            </DialogTrigger>
 
-            <DialogContent className="max-w-2xl rounded-xl border-0 shadow-xl p-0 overflow-hidden bg-white">
-            {/* Header */}
-            <div className="bg-white border-b border-slate-200 px-6 py-4">
-              <DialogTitle className="text-2xl font-bold text-slate-900">
-                {editingId ? '✏️ Edit Menu Item' : '➕ Add New Menu Item'}
-              </DialogTitle>
-              <p className="text-sm text-slate-600 mt-1">Fill in the details below</p>
-            </div>
+              {/* Upload JSON Button */}
+              <Button 
+                onClick={() => jsonFileInputRef.current?.click()}
+                disabled={isImportingJSON}
+                className="bg-amber-600 hover:bg-amber-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold"
+              >
+                {isImportingJSON ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-5 h-5" />
+                    Upload Menu (.json)
+                  </>
+                )}
+              </Button>
+
+              {/* Text to JSON Converter Button */}
+              <Button 
+                onClick={() => setIsTextConverterOpen(true)}
+                className="bg-purple-600 hover:bg-purple-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold"
+              >
+                📝 Convert Text to JSON
+              </Button>
+
+              {/* Delete All Button */}
+              <Button 
+                onClick={() => setIsDeleteAllConfirmOpen(true)}
+                disabled={items.length === 0 || isDeletingAll}
+                className="bg-red-600 hover:bg-red-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeletingAll ? (
+                  <>
+                    <Loader className="w-5 h-5 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-5 h-5" />
+                    Delete All Items
+                  </>
+                )}
+              </Button>
+
+              {/* Add Menu Item Button */}
+              <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    onClick={handleOpenNewDialog}
+                    className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-6 py-2 flex items-center gap-2 font-semibold"
+                  >
+                    <Plus className="w-5 h-5" />
+                    Add Menu Item
+                  </Button>
+                </DialogTrigger>
+
+                <DialogContent className="max-w-2xl rounded-xl border-0 shadow-xl p-0 overflow-hidden bg-white">
+                  {/* Header */}
+                  <div className="bg-white border-b border-slate-200 px-6 py-4">
+                    <DialogTitle className="text-2xl font-bold text-slate-900">
+                      {editingId ? '✏️ Edit Menu Item' : '➕ Add New Menu Item'}
+                    </DialogTitle>
+                    <p className="text-sm text-slate-600 mt-1">Fill in the details below</p>
+                  </div>
 
             {/* Form Content */}
             <form onSubmit={handleSubmit} className="px-6 py-6 space-y-6 max-h-[80vh] overflow-y-auto">
@@ -1007,23 +1055,12 @@ export default function AdminMenuPage() {
               </div>
 
               {/* Category */}
-              <div>
-                <Label htmlFor="category" className="text-sm font-semibold text-slate-900 mb-2 block">
-                  Category *
-                </Label>
-                <select
-                  id="category"
-                  value={formData.category}
-                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                  className="w-full border-2 border-slate-200 rounded-lg px-4 py-2.5 text-slate-900 font-medium bg-white hover:border-slate-300 focus:border-blue-500 focus:ring-0 cursor-pointer"
-                >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <CategoryPicker
+                value={formData.category}
+                onChange={(category) => setFormData({ ...formData, category })}
+                label="Category"
+                required
+              />
 
               {/* Item Number */}
               <div>
@@ -1246,12 +1283,11 @@ export default function AdminMenuPage() {
               </div>
             </form>
           </DialogContent>
-            </Dialog>
-          </div>
-        </motion.div>
+                </Dialog>
+            </div>
 
-      {/* Search and Stats */}
-      <Card className="border-2 border-slate-200">
+            {/* Search and Stats */}
+            <Card className="border-2 border-slate-200">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-xl">Menu Items</CardTitle>
@@ -1385,6 +1421,19 @@ export default function AdminMenuPage() {
           </div>
         </CardContent>
       </Card>
+            </motion.div>
+        ) : (
+          <motion.div
+            key="categories-tab"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            <CategoryManagementComponent />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Text to JSON Converter Modal */}
       <Dialog open={isTextConverterOpen} onOpenChange={setIsTextConverterOpen}>

@@ -319,27 +319,33 @@ export default function ReservationsPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.1 }}
-        className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"
+        className="space-y-4"
       >
-        <Card className="flex-1 p-4 rounded-xl border-0 bg-white">
+        <Card className="p-4 rounded-xl border-0 bg-white">
           <div className="flex items-center gap-3 bg-slate-50 px-4 py-2 rounded-lg">
-            <Search className="w-5 h-5 text-slate-400" />
+            <Search className="w-5 h-5 text-slate-400 flex-shrink-0" />
             <Input
               type="text"
               placeholder="Nach Name oder E-Mail suchen..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="bg-transparent border-0 focus:outline-none text-slate-900 placeholder-slate-400"
+              className="bg-transparent border-0 focus:outline-none text-slate-900 placeholder-slate-400 text-sm md:text-base"
             />
           </div>
         </Card>
-        <div className="flex gap-2">
+        
+        {/* Filter Buttons - Responsive */}
+        <div className="flex flex-wrap gap-2 justify-start md:justify-between">
           {(['all', 'pending', 'confirmed', 'rejected'] as const).map((status) => (
             <Button
               key={status}
               onClick={() => setFilter(status)}
               variant={filter === status ? 'default' : 'outline'}
-              className={`rounded-lg ${filter === status ? 'bg-orange-600 hover:bg-orange-700' : ''}`}
+              className={`rounded-lg text-sm md:text-base py-2 px-3 md:px-4 flex-1 md:flex-none min-w-[80px] ${
+                filter === status 
+                  ? 'bg-orange-600 hover:bg-orange-700 text-white' 
+                  : 'border-slate-200 text-slate-700 hover:border-slate-300'
+              }`}
             >
               {status === 'all' ? 'Alle' : status === 'pending' ? 'Ausstehend' : status === 'confirmed' ? 'Bestätigt' : 'Abgelehnt'}
             </Button>
@@ -347,120 +353,132 @@ export default function ReservationsPage() {
         </div>
       </motion.div>
 
-      {/* Reservations Table */}
+      {/* Reservations Grid - Responsive */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2 }}
       >
-        <Card className="rounded-2xl border-0 bg-white shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-slate-200 bg-slate-50">
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Reservierungs ID</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Name</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Kontakt</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Datum & Zeit</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Gäste</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Notizen</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Status</th>
-                  <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Aktionen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredReservations.map((reservation, idx) => (
-                  <motion.tr
-                    key={reservation.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: idx * 0.05 }}
-                    className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
-                        <p className="text-gray-700 font-semibold">{reservation.id.substring(0, 8)}</p>
-                        <p className="text-gray-500 text-xs">{reservation.id.substring(8, 16)}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-white">{reservation.name.charAt(0)}</span>
+        {/* Desktop Table View (lg and up) */}
+        <div className="hidden lg:block">
+          <Card className="rounded-2xl border-0 bg-white shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50">
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Reservierungs ID</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Name</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Kontakt</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Datum & Zeit</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Gäste</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Notizen</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-slate-900">Status</th>
+                    <th className="px-6 py-4 text-right text-sm font-semibold text-slate-900">Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredReservations.map((reservation, idx) => (
+                    <motion.tr
+                      key={reservation.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3, delay: idx * 0.05 }}
+                      className="border-b border-slate-100 hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                          <p className="text-gray-700 font-semibold">{reservation.id.substring(0, 8)}</p>
+                          <p className="text-gray-500 text-xs">{reservation.id.substring(8, 16)}</p>
                         </div>
-                        <p className="font-medium text-slate-900">{reservation.name}</p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm space-y-1">
-                        <p className="flex items-center gap-2 text-slate-600">
-                          <Mail className="w-3 h-3" />
-                          {reservation.email}
-                        </p>
-                        <p className="flex items-center gap-2 text-slate-600">
-                          <Phone className="w-3 h-3" />
-                          {reservation.phone}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm space-y-1">
-                        <p className="flex items-center gap-2 text-slate-900 font-medium">
-                          <Calendar className="w-3 h-3" />
-                          {reservation.date}
-                        </p>
-                        <p className="flex items-center gap-2 text-slate-600">
-                          <Clock className="w-3 h-3" />
-                          {reservation.time}
-                        </p>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-slate-900 font-medium">
-                        <Users className="w-4 h-4" />
-                        {reservation.partySize}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-600 max-w-xs">
-                      {reservation.rejectionReason && (
-                        <span className="text-red-600 font-medium">
-                          Grund: {reservation.rejectionReason}
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-white">{reservation.name.charAt(0)}</span>
+                          </div>
+                          <p className="font-medium text-slate-900">{reservation.name}</p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm space-y-1">
+                          <p className="flex items-center gap-2 text-slate-600">
+                            <Mail className="w-3 h-3" />
+                            {reservation.email}
+                          </p>
+                          <p className="flex items-center gap-2 text-slate-600">
+                            <Phone className="w-3 h-3" />
+                            {reservation.phone}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="text-sm space-y-1">
+                          <p className="flex items-center gap-2 text-slate-900 font-medium">
+                            <Calendar className="w-3 h-3" />
+                            {reservation.date}
+                          </p>
+                          <p className="flex items-center gap-2 text-slate-600">
+                            <Clock className="w-3 h-3" />
+                            {reservation.time}
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-slate-900 font-medium">
+                          <Users className="w-4 h-4" />
+                          {reservation.partySize}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600 max-w-xs">
+                        {reservation.rejectionReason && (
+                          <span className="text-red-600 font-medium">
+                            Grund: {reservation.rejectionReason}
+                          </span>
+                        ) || (reservation.message ? (
+                          <button
+                            onClick={() => handleViewNotes(reservation.message)}
+                            className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors font-medium"
+                            title="Notizen anzeigen"
+                          >
+                            <Eye className="w-3 h-3" />
+                            Anzeigen
+                          </button>
+                        ) : (
+                          <span>—</span>
+                        ))}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold inline-block ${
+                          reservation.status === 'confirmed'
+                            ? 'bg-green-100 text-green-700'
+                            : reservation.status === 'rejected'
+                            ? 'bg-red-100 text-red-700'
+                            : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                          {reservation.status === 'confirmed' ? 'Bestätigt' : reservation.status === 'rejected' ? 'Abgelehnt' : 'Ausstehend'}
                         </span>
-                      ) || (reservation.message ? (
-                        <button
-                          onClick={() => handleViewNotes(reservation.message)}
-                          className="inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors font-medium"
-                          title="Notizen anzeigen"
-                        >
-                          <Eye className="w-3 h-3" />
-                          Anzeigen
-                        </button>
-                      ) : (
-                        <span>—</span>
-                      ))}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold inline-block ${
-                        reservation.status === 'confirmed'
-                          ? 'bg-green-100 text-green-700'
-                          : reservation.status === 'rejected'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                        {reservation.status === 'confirmed' ? 'Bestätigt' : reservation.status === 'rejected' ? 'Abgelehnt' : 'Ausstehend'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex justify-end gap-2 flex-wrap">
-                        {reservation.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleStatusChange(reservation.id, 'confirmed')}
-                              className="p-2 hover:bg-green-100 rounded-lg transition-colors text-green-600"
-                              title="Bestätigen"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex justify-end gap-2 flex-wrap">
+                          {reservation.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleStatusChange(reservation.id, 'confirmed')}
+                                className="p-2 hover:bg-green-100 rounded-lg transition-colors text-green-600"
+                                title="Bestätigen"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleStatusChange(reservation.id, 'rejected')}
+                                className="p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600"
+                                title="Ablehnen"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          {reservation.status === 'confirmed' && (
                             <button
                               onClick={() => handleStatusChange(reservation.id, 'rejected')}
                               className="p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600"
@@ -468,32 +486,156 @@ export default function ReservationsPage() {
                             >
                               <X className="w-4 h-4" />
                             </button>
-                          </>
-                        )}
-                        {reservation.status === 'confirmed' && (
+                          )}
                           <button
-                            onClick={() => handleStatusChange(reservation.id, 'rejected')}
-                            className="p-2 hover:bg-red-100 rounded-lg transition-colors text-red-600"
-                            title="Ablehnen"
+                            onClick={() => handleDelete(reservation.id)}
+                            className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
+                            title="Löschen"
                           >
                             <X className="w-4 h-4" />
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleDelete(reservation.id)}
-                          className="p-2 hover:bg-slate-100 rounded-lg transition-colors text-slate-600"
-                          title="Löschen"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+                        </div>
+                      </td>
+                    </motion.tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+
+        {/* Mobile Card View (below lg) */}
+        <div className="lg:hidden space-y-4">
+          {filteredReservations.map((reservation, idx) => (
+            <motion.div
+              key={reservation.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: idx * 0.05 }}
+              className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden"
+            >
+              {/* Card Header - Name & Status */}
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <div className="flex items-center gap-3 flex-1 min-w-0">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-500 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xs font-bold text-white">{reservation.name.charAt(0)}</span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-slate-900 truncate">{reservation.name}</p>
+                    <p className="text-xs text-slate-500">{reservation.date} • {reservation.time}</p>
+                  </div>
+                </div>
+                <span className={`ml-2 px-2 py-1 rounded-full text-xs font-semibold flex-shrink-0 ${
+                  reservation.status === 'confirmed'
+                    ? 'bg-green-100 text-green-700'
+                    : reservation.status === 'rejected'
+                    ? 'bg-red-100 text-red-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                }`}>
+                  {reservation.status === 'confirmed' ? 'Bestätigt' : reservation.status === 'rejected' ? 'Abgelehnt' : 'Ausstehend'}
+                </span>
+              </div>
+
+              {/* Card Body - Details */}
+              <div className="p-4 space-y-3">
+                {/* Reservation ID */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-600 mb-1">Reservierungs ID</p>
+                  <div className="font-mono text-xs bg-gray-100 px-2 py-1 rounded inline-block">
+                    <p className="text-gray-700 font-semibold">{reservation.id.substring(0, 8)}</p>
+                    <p className="text-gray-500 text-xs">{reservation.id.substring(8, 16)}</p>
+                  </div>
+                </div>
+
+                {/* Contact */}
+                <div>
+                  <p className="text-xs font-semibold text-slate-600 mb-1">Kontakt</p>
+                  <div className="space-y-1 text-sm">
+                    <p className="flex items-center gap-2 text-slate-700">
+                      <Mail className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                      <span className="break-all">{reservation.email}</span>
+                    </p>
+                    <p className="flex items-center gap-2 text-slate-700">
+                      <Phone className="w-4 h-4 flex-shrink-0 text-slate-400" />
+                      {reservation.phone}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Party Size */}
+                <div className="flex items-center gap-4 bg-slate-50 px-3 py-2 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <Users className="w-4 h-4 text-slate-600" />
+                    <span className="text-sm font-medium text-slate-900">{reservation.partySize} Gäste</span>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                {(reservation.message || reservation.rejectionReason) && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-600 mb-1">
+                      {reservation.rejectionReason ? 'Ablehnungsgrund' : 'Notizen'}
+                    </p>
+                    {reservation.rejectionReason ? (
+                      <p className="text-sm text-red-600 font-medium">{reservation.rejectionReason}</p>
+                    ) : (
+                      <button
+                        onClick={() => handleViewNotes(reservation.message)}
+                        className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors font-medium text-sm"
+                        title="Notizen anzeigen"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Notizen anzeigen
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Card Footer - Actions */}
+              <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex gap-2 flex-wrap justify-center">
+                {reservation.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => handleStatusChange(reservation.id, 'confirmed')}
+                      className="flex-1 min-w-[120px] px-3 py-2 bg-green-100 text-green-700 hover:bg-green-200 rounded-lg transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                      title="Bestätigen"
+                    >
+                      <Check className="w-4 h-4" />
+                      Bestätigen
+                    </button>
+                    <button
+                      onClick={() => handleStatusChange(reservation.id, 'rejected')}
+                      className="flex-1 min-w-[120px] px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                      title="Ablehnen"
+                    >
+                      <X className="w-4 h-4" />
+                      Ablehnen
+                    </button>
+                  </>
+                )}
+                {reservation.status === 'confirmed' && (
+                  <button
+                    onClick={() => handleStatusChange(reservation.id, 'rejected')}
+                    className="flex-1 min-w-[120px] px-3 py-2 bg-red-100 text-red-700 hover:bg-red-200 rounded-lg transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                    title="Ablehnen"
+                  >
+                    <X className="w-4 h-4" />
+                    Ablehnen
+                  </button>
+                )}
+                <button
+                  onClick={() => handleDelete(reservation.id)}
+                  className="flex-1 min-w-[120px] px-3 py-2 bg-slate-200 text-slate-700 hover:bg-slate-300 rounded-lg transition-colors font-semibold text-sm flex items-center justify-center gap-2"
+                  title="Löschen"
+                >
+                  <X className="w-4 h-4" />
+                  Löschen
+                </button>
+              </div>
+            </motion.div>
+          ))}
+        </div>
 
         {filteredReservations.length === 0 && (
           <div className="text-center py-12">

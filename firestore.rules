@@ -115,6 +115,12 @@ service cloud.firestore {
       allow create, update, delete: if isMainAdmin();
     }
     
+    // Category Configs - public read, admin write
+    match /categoryConfigs/{document=**} {
+      allow read: if true;
+      allow create, update, delete: if isMainAdmin();
+    }
+    
     // ==================== ANNOUNCEMENTS ====================
     
     // Announcements - public read, admin write
