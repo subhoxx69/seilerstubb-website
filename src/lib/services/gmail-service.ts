@@ -344,7 +344,7 @@ export async function sendReservationAcceptanceEmail(options: {
 
   const restaurantName = 'Seilerstubb';
   const restaurantAddress = 'Seilerpfad 4, 65205 Wiesbaden';
-  const restaurantPhone = '+49 611 123456';
+  const restaurantPhone = '+49 061136004940';
   const restaurantEmail = 'noreplyseilerstubb@gmail.com';
   const mapsUrl = 'https://maps.google.com/?q=Seilerpfad+4,+65205+Wiesbaden';
   const websiteUrl = 'https://seilerstubb.com';
@@ -500,7 +500,7 @@ export async function sendReservationDeclineEmail(options: {
 
   const restaurantName = 'Seilerstubb';
   const restaurantAddress = 'Seilerpfad 4, 65205 Wiesbaden';
-  const restaurantPhone = '+49 611 123456';
+  const restaurantPhone = '+49 061136004940';
   const restaurantEmail = 'noreplyseilerstubb@gmail.com';
   const mapsUrl = 'https://maps.google.com/?q=Seilerpfad+4,+65205+Wiesbaden';
   const websiteUrl = 'https://seilerstubb.com';

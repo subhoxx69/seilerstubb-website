@@ -100,7 +100,8 @@ const mockTestimonials: Testimonial[] = [
 const mockRestaurantInfo = {
   name: ' ',
   address: 'Seilerpfad 4, 65205 Wiesbaden',
-  phone: '+49 611 123456',
+  phone: '0611 36004940',
+  phoneLink: 'tel:+49611360049400',
   email: 'info@seilerstubb.de',
 };
 
@@ -957,7 +958,7 @@ function LocationSection() {
             {/* Action Buttons */}
             <div className="grid grid-cols-2 gap-4">
               <motion.a
-                href={`tel:${mockRestaurantInfo.phone}`}
+                href={`tel:0611360049400`}
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >

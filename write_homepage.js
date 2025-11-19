@@ -37,7 +37,8 @@ const mockTestimonials = [
 const mockRestaurantInfo = {
   name: 'Seilerstubb Restaurant',
   address: 'Seilerpfad 4, 65205 Wiesbaden',
-  phone: '+49 611 123456',
+  phone: '0611 36004940',
+  phoneLink: '+49611360049400',
   email: 'info@seilerstubb.de',
 };
 
