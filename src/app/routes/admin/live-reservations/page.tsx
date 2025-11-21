@@ -66,6 +66,9 @@ export default function LiveReservationsPage() {
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const popupTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const previousPendingCountRef = useRef<number>(0);
+  const [listenerActive, setListenerActive] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // PWA Install prompt handler
   useEffect(() => {
@@ -92,7 +95,73 @@ export default function LiveReservationsPage() {
     setSelectedReservation(null);
   }, [activeTab]);
 
-  // Play notification sound
+  // Hide sidebar on this page and remove margins
+  useEffect(() => {
+    // Add a comprehensive style tag to hide the sidebar and remove margins
+    const style = document.createElement('style');
+    style.id = 'hide-sidebar-live-reservations';
+    style.innerHTML = `
+      aside {
+        display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        position: absolute !important;
+      }
+      [class*="flex-1"] {
+        margin-left: 0 !important;
+      }
+      [class*="md:ml-"] {
+        margin-left: 0 !important;
+      }
+      .flex.h-screen {
+        margin-left: 0 !important;
+        width: 100% !important;
+      }
+    `;
+    document.head.appendChild(style);
+
+    // Direct DOM manipulation
+    const aside = document.querySelector('aside');
+    if (aside) {
+      (aside as HTMLElement).style.display = 'none';
+      (aside as HTMLElement).style.visibility = 'hidden';
+      (aside as HTMLElement).style.position = 'absolute';
+      (aside as HTMLElement).style.width = '0';
+    }
+
+    // Remove margin from main content area
+    const mainContent = document.querySelector('[class*="flex-1"]');
+    if (mainContent) {
+      (mainContent as HTMLElement).style.marginLeft = '0';
+      (mainContent as HTMLElement).style.width = '100%';
+    }
+
+    return () => {
+      // Remove the style tag
+      const styleTag = document.getElementById('hide-sidebar-live-reservations');
+      if (styleTag) {
+        styleTag.remove();
+      }
+      
+      // Restore sidebar when leaving the page
+      const aside = document.querySelector('aside');
+      if (aside) {
+        (aside as HTMLElement).style.display = '';
+        (aside as HTMLElement).style.visibility = '';
+        (aside as HTMLElement).style.position = '';
+        (aside as HTMLElement).style.width = '';
+      }
+
+      // Restore main content margins
+      const mainContent = document.querySelector('[class*="flex-1"]');
+      if (mainContent) {
+        (mainContent as HTMLElement).style.marginLeft = '';
+        (mainContent as HTMLElement).style.width = '';
+      }
+    };
+  }, []);
+
+  // Play notification sound - Better melody
   const playNotificationSound = () => {
     try {
       const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -101,7 +170,7 @@ export default function LiveReservationsPage() {
         frequency: number,
         duration: number,
         startTime: number,
-        volume: number = 0.2
+        volume: number = 0.3
       ) => {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
@@ -123,69 +192,103 @@ export default function LiveReservationsPage() {
       };
       
       const now = audioContext.currentTime;
-      const noteDuration = 0.2;
       
-      playNote(523, noteDuration, 0, 0.25);
-      playNote(659, noteDuration, noteDuration + 0.05, 0.25);
-      playNote(784, noteDuration * 1.5, noteDuration * 2 + 0.1, 0.3);
+      // Pleasant melody - higher notes
+      playNote(523, 0.25, 0, 0.35);      // C5
+      playNote(659, 0.25, 0.3, 0.35);    // E5
+      playNote(784, 0.25, 0.6, 0.35);    // G5
+      playNote(1047, 0.4, 0.9, 0.4);     // C6 - higher
     } catch (error) {
       console.error('Error playing notification sound:', error);
     }
   };
 
-  // Initialize real-time listener
+  // Initialize real-time listener with enhanced error handling and auto-reconnection
   useEffect(() => {
     const startListening = async () => {
       try {
+        setListenerActive(true);
+        
         const q = query(
           collection(db, 'reservations'),
           orderBy('createdAt', 'desc')
         );
 
-        const unsubscribe = onSnapshot(q, (snapshot) => {
-          const pending: Reservation[] = [];
-          const completed: Reservation[] = [];
+        const unsubscribe = onSnapshot(
+          q,
+          (snapshot) => {
+            // Listener connected successfully
+            setListenerActive(true);
+            
+            const pending: Reservation[] = [];
+            const completed: Reservation[] = [];
 
-          snapshot.docs.forEach((doc) => {
-            const data = doc.data() as Reservation;
-            const reservation: Reservation = {
-              ...data,
-              id: doc.id,
-            };
+            snapshot.docs.forEach((doc) => {
+              const data = doc.data() as Reservation;
+              const reservation: Reservation = {
+                ...data,
+                id: doc.id,
+              };
 
-            if (data.status === 'pending') {
-              pending.push(reservation);
-            } else {
-              completed.push(reservation);
-            }
-          });
-
-          // Check if we have a new pending reservation
-          if (pending.length > previousPendingCountRef.current) {
-            const newReservation = pending[0];
-            if (newReservation) {
-              setPopupReservation(newReservation);
-              setShowPopupNotification(true);
-              playNotificationSound();
-              
-              if (popupTimeoutRef.current) {
-                clearTimeout(popupTimeoutRef.current);
+              if (data.status === 'pending') {
+                pending.push(reservation);
+              } else {
+                completed.push(reservation);
               }
-              
-              popupTimeoutRef.current = setTimeout(() => {
-                setShowPopupNotification(false);
-              }, 8000);
-            }
-          }
+            });
 
-          previousPendingCountRef.current = pending.length;
-          setPendingReservations(pending);
-          setCompletedReservations(completed);
-        });
+            // Check if we have a new pending reservation
+            if (pending.length > previousPendingCountRef.current) {
+              const newReservation = pending[0];
+              if (newReservation) {
+                setPopupReservation(newReservation);
+                setShowPopupNotification(true);
+                playNotificationSound();
+                
+                if (popupTimeoutRef.current) {
+                  clearTimeout(popupTimeoutRef.current);
+                }
+                
+                popupTimeoutRef.current = setTimeout(() => {
+                  setShowPopupNotification(false);
+                }, 10000);
+              }
+            }
+
+            // Update timestamp to show real-time activity
+            setLastUpdate(new Date());
+            previousPendingCountRef.current = pending.length;
+            setPendingReservations(pending);
+            setCompletedReservations(completed);
+          },
+          (error) => {
+            // Error handling with automatic reconnection
+            console.error('Firestore listener error:', error);
+            setListenerActive(false);
+            
+            // Attempt to reconnect after 3 seconds
+            if (reconnectTimeoutRef.current) {
+              clearTimeout(reconnectTimeoutRef.current);
+            }
+            reconnectTimeoutRef.current = setTimeout(() => {
+              console.log('Attempting to reconnect to Firestore...');
+              startListening();
+            }, 3000);
+          }
+        );
 
         unsubscribeRef.current = unsubscribe;
       } catch (error) {
-        console.error('Error setting up listener:', error);
+        console.error('Error setting up real-time listener:', error);
+        setListenerActive(false);
+        
+        // Retry connection after 3 seconds
+        if (reconnectTimeoutRef.current) {
+          clearTimeout(reconnectTimeoutRef.current);
+        }
+        reconnectTimeoutRef.current = setTimeout(() => {
+          startListening();
+        }, 3000);
       }
     };
 
@@ -194,6 +297,9 @@ export default function LiveReservationsPage() {
     return () => {
       if (popupTimeoutRef.current) {
         clearTimeout(popupTimeoutRef.current);
+      }
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
       }
       if (unsubscribeRef.current) {
         unsubscribeRef.current();
@@ -373,6 +479,30 @@ export default function LiveReservationsPage() {
 
   const currentReservations =
     activeTab === 'pending' ? pendingReservations : completedReservations;
+
+  // Inject global styles to hide sidebar
+  React.useMemo(() => {
+    if (typeof window !== 'undefined') {
+      const existingStyle = document.getElementById('hide-sidebar-live-res-global');
+      if (!existingStyle) {
+        const style = document.createElement('style');
+        style.id = 'hide-sidebar-live-res-global';
+        style.innerHTML = `
+          body {
+            overflow: hidden;
+          }
+          aside {
+            display: none !important;
+            visibility: hidden !important;
+          }
+          [class*="flex h-screen"] {
+            margin-left: 0 !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+    }
+  }, []);
 
   // Fullscreen detail view
   if (selectedReservation) {
@@ -648,118 +778,193 @@ export default function LiveReservationsPage() {
 
   // Main list view
   return (
-    <div className="min-h-screen bg-white p-4 sm:p-6 lg:p-8 flex flex-col gap-4 sm:gap-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-2">
-        <div className="flex items-center gap-3">
-          <div className="w-1 h-8 bg-gradient-to-b from-blue-600 to-purple-600 rounded"></div>
-          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Live Reservierungen</h1>
-        </div>
-
-        {/* Status indicator + Install button */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-slate-50 rounded-lg border border-slate-200 text-xs sm:text-sm">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="font-medium text-slate-600">LIVE</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 w-full overflow-x-hidden">
+      {/* Header with App Install - Responsive */}
+      <div className="sticky top-0 z-40 bg-white shadow-sm border-b border-slate-200">
+        <div className="w-full px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-5 md:py-6">
+          <div className="flex items-center justify-center">
+            {installPrompt && (
+              <Button
+                onClick={handleInstallApp}
+                className="px-2 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg flex items-center gap-1 sm:gap-2 text-xs sm:text-sm shadow-md"
+              >
+                <Download className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">App installieren</span>
+                <span className="sm:hidden">App</span>
+              </Button>
+            )}
           </div>
-          
-          {installPrompt && (
-            <Button
-              onClick={handleInstallApp}
-              className="px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg flex items-center gap-2 text-xs sm:text-sm"
-            >
-              <Download className="w-4 h-4" />
-              <span className="hidden sm:inline">App installieren</span>
-              <span className="sm:hidden">App</span>
-            </Button>
-          )}
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 bg-white rounded-lg p-1 border border-slate-200 w-full sm:w-fit shadow-sm overflow-x-auto">
-        {(['pending', 'completed'] as const).map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 sm:flex-none px-4 sm:px-6 py-3 rounded-md font-medium transition-all text-xs sm:text-sm min-h-11 touch-target ${
-              activeTab === tab
-                ? 'bg-slate-900 text-white'
-                : 'text-slate-600 hover:text-slate-900'
+      {/* Main Content - Responsive Padding */}
+      <div className="w-full px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8">
+        {/* Tab Selector with Icons - Responsive Grid */}
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:gap-6 lg:gap-8 mb-8 sm:mb-10 md:mb-12">
+          {/* Pending Tab */}
+          <motion.button
+            onClick={() => setActiveTab('pending')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className={`relative rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 lg:p-8 transition-all duration-300 transform ${
+              activeTab === 'pending'
+                ? 'bg-white shadow-xl border-2 border-yellow-400'
+                : 'bg-white shadow-md border-2 border-slate-200 hover:shadow-lg'
             }`}
           >
-            {tab === 'pending' ? 'Ausstehend' : 'Abgeschlossen'}
-            <span className={`ml-2 px-2 py-0.5 rounded text-xs font-semibold ${
-              activeTab === tab 
-                ? 'bg-slate-700 text-white'
-                : 'bg-slate-100 text-slate-700'
-            }`}>
-              {tab === 'pending' ? pendingReservations.length : completedReservations.length}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Reservations List - Desktop and Mobile */}
-      <div className="space-y-3 sm:space-y-4 flex-1">
-        <AnimatePresence mode="popLayout">
-          {currentReservations.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-              <AlertCircle className="w-12 h-12 mb-3 opacity-50" />
-              <p className="text-xs sm:text-sm text-center px-4">
-                {activeTab === 'pending'
-                  ? 'Keine ausstehenden Reservierungen'
-                  : 'Keine abgeschlossenen Reservierungen'}
+            <div className="text-center">
+              <motion.div
+                animate={activeTab === 'pending' ? { scale: [1, 1.1, 1] } : {}}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="mb-2 sm:mb-3 md:mb-4 lg:mb-6 flex justify-center"
+              >
+                <div className={`p-2 sm:p-3 md:p-4 lg:p-6 rounded-full ${
+                  activeTab === 'pending'
+                    ? 'bg-yellow-100'
+                    : 'bg-slate-100'
+                }`}>
+                  <AlertCircle className={`w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-10 lg:h-10 ${
+                    activeTab === 'pending'
+                      ? 'text-yellow-600'
+                      : 'text-slate-500'
+                  }`} />
+                </div>
+              </motion.div>
+              <h2 className={`text-base sm:text-lg md:text-xl lg:text-2xl font-black mb-1 sm:mb-1.5 md:mb-2 ${
+                activeTab === 'pending'
+                  ? 'text-yellow-900'
+                  : 'text-slate-700'
+              }`}>
+                Ausstehend
+              </h2>
+              <p className={`text-xs sm:text-sm md:text-base font-bold ${
+                activeTab === 'pending'
+                  ? 'text-yellow-600'
+                  : 'text-slate-500'
+              }`}>
+                {pendingReservations.length} Reservierungen
               </p>
             </div>
-          ) : (
-            currentReservations.map((reservation, index) => (
+            {activeTab === 'pending' && (
               <motion.div
-                key={reservation.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                layoutId={reservation.id}
-              >
-                <Card
-                  onClick={() => setSelectedReservation(reservation)}
-                  className="p-4 sm:p-6 cursor-pointer transition-all border-2 border-slate-200 hover:border-slate-300 hover:shadow-md bg-white"
-                >
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    {/* Guest Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-                          <span className="text-lg font-bold text-white">
-                            {(reservation.firstName || 'G')[0]}
-                          </span>
-                        </div>
-                        <div className="min-w-0">
-                          <h3 className="font-bold text-slate-900 text-sm sm:text-base truncate">
-                            {reservation.firstName || 'Gast'} {reservation.lastName || ''}
-                          </h3>
-                          <p className="text-xs text-slate-500">
-                            {reservation.people || 1} {reservation.people === 1 ? 'Person' : 'Personen'}
-                          </p>
-                        </div>
-                      </div>
+                layoutId="activeIndicator"
+                className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-400 to-yellow-500 rounded-full"
+              />
+            )}
+          </motion.button>
 
-                      {/* DateTime */}
-                      <div className="flex flex-wrap items-center gap-4 text-xs sm:text-sm text-slate-600">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-4 h-4 flex-shrink-0" />
-                          {reservation.date}
+          {/* Completed Tab */}
+          <motion.button
+            onClick={() => setActiveTab('completed')}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            className={`relative rounded-lg sm:rounded-xl md:rounded-2xl p-3 sm:p-4 md:p-6 lg:p-8 transition-all duration-300 transform ${
+              activeTab === 'completed'
+                ? 'bg-white shadow-xl border-2 border-green-400'
+                : 'bg-white shadow-md border-2 border-slate-200 hover:shadow-lg'
+            }`}
+          >
+            <div className="text-center">
+              <motion.div
+                animate={activeTab === 'completed' ? { scale: [1, 1.1, 1] } : {}}
+                transition={{ duration: 2, repeat: Infinity }}
+                className="mb-2 sm:mb-3 md:mb-4 lg:mb-6 flex justify-center"
+              >
+                <div className={`p-2 sm:p-3 md:p-4 lg:p-6 rounded-full ${
+                  activeTab === 'completed'
+                    ? 'bg-green-100'
+                    : 'bg-slate-100'
+                }`}>
+                  <Check className={`w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 lg:w-10 lg:h-10 ${
+                    activeTab === 'completed'
+                      ? 'text-green-600'
+                      : 'text-slate-500'
+                  }`} />
+                </div>
+              </motion.div>
+              <h2 className={`text-base sm:text-lg md:text-xl lg:text-2xl font-black mb-1 sm:mb-1.5 md:mb-2 ${
+                activeTab === 'completed'
+                  ? 'text-green-900'
+                  : 'text-slate-700'
+              }`}>
+                Abgeschlossen
+              </h2>
+              <p className={`text-xs sm:text-sm md:text-base font-bold ${
+                activeTab === 'completed'
+                  ? 'text-green-600'
+                  : 'text-slate-500'
+              }`}>
+                {completedReservations.length} Reservierungen
+              </p>
+            </div>
+            {activeTab === 'completed' && (
+              <motion.div
+                layoutId="activeIndicator"
+                className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-green-400 to-green-500 rounded-full"
+              />
+            )}
+          </motion.button>
+        </div>
+
+        {/* Reservations List - Responsive */}
+        <div className="space-y-2 sm:space-y-3 md:space-y-4">
+          <AnimatePresence mode="popLayout">
+            {currentReservations.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center justify-center py-12 sm:py-16 md:py-20 bg-white rounded-lg sm:rounded-xl md:rounded-2xl border-2 border-dashed border-slate-300"
+              >
+                <AlertCircle className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 mb-3 sm:mb-4 text-slate-300" />
+                <p className="text-slate-500 font-medium text-sm sm:text-base md:text-lg text-center px-4">
+                  {activeTab === 'pending'
+                    ? 'Keine ausstehenden Reservierungen'
+                    : 'Keine abgeschlossenen Reservierungen'}
+                </p>
+              </motion.div>
+            ) : (
+              currentReservations.map((reservation) => (
+                <motion.div
+                  key={reservation.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  whileHover={{ scale: 1.01 }}
+                  onClick={() => setSelectedReservation(reservation)}
+                  className="bg-white rounded-lg sm:rounded-xl md:rounded-xl p-3 sm:p-4 md:p-6 cursor-pointer border-2 border-slate-200 hover:border-slate-300 transition-all shadow-sm hover:shadow-lg active:scale-95"
+                >
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4 md:gap-6">
+                    {/* Avatar - Responsive */}
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0 shadow-md">
+                      <span className="text-lg sm:text-xl md:text-2xl font-bold text-white">
+                        {(reservation.firstName || 'G')[0].toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* Guest Info - Responsive */}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="font-bold text-sm sm:text-base md:text-lg text-slate-900 mb-1 sm:mb-2 line-clamp-1">
+                        {reservation.firstName || 'Gast'} {reservation.lastName || ''}
+                      </h3>
+                      <div className="flex flex-col sm:flex-row flex-wrap gap-2 sm:gap-3 md:gap-4 text-xs sm:text-sm md:text-base text-slate-600">
+                        <span className="flex items-center gap-1 sm:gap-2">
+                          <Calendar className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500 flex-shrink-0" />
+                          <strong className="truncate">{reservation.date}</strong>
                         </span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-4 h-4 flex-shrink-0" />
-                          {reservation.time}
+                        <span className="flex items-center gap-1 sm:gap-2">
+                          <Clock className="w-3 h-3 sm:w-4 sm:h-4 text-purple-500 flex-shrink-0" />
+                          <strong>{reservation.time}</strong>
+                        </span>
+                        <span className="flex items-center gap-1 sm:gap-2">
+                          <Users className="w-3 h-3 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />
+                          <strong>{reservation.people || 1} {reservation.people === 1 ? 'Person' : 'Personen'}</strong>
                         </span>
                       </div>
                     </div>
 
-                    {/* Status */}
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    {/* Status Badge - Responsive */}
+                    <div className="flex flex-col items-end gap-2 sm:gap-3 flex-shrink-0">
+                      <span className={`px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 rounded-full text-xs sm:text-sm md:text-base font-bold whitespace-nowrap ${
                         reservation.status === 'confirmed'
                           ? 'bg-green-100 text-green-700'
                           : reservation.status === 'rejected'
@@ -767,22 +972,22 @@ export default function LiveReservationsPage() {
                           : 'bg-yellow-100 text-yellow-700'
                       }`}>
                         {reservation.status === 'confirmed'
-                          ? 'Bestätigt'
+                          ? '✓ Bestätigt'
                           : reservation.status === 'rejected'
-                          ? 'Abgelehnt'
-                          : 'Ausstehend'}
+                          ? '✗ Abgelehnt'
+                          : '⏱ Ausstehend'}
                       </span>
-                      <ChevronDown className="w-5 h-5 text-slate-400 hidden sm:block" />
+                      <ChevronDown className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 hidden sm:block" />
                     </div>
                   </div>
-                </Card>
-              </motion.div>
-            ))
-          )}
-        </AnimatePresence>
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
+        </div>
       </div>
 
-      {/* Popup Notification */}
+      {/* Popup Notification - Responsive */}
       <AnimatePresence>
         {showPopupNotification && popupReservation && (
           <motion.div
@@ -790,7 +995,7 @@ export default function LiveReservationsPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[9999] p-4"
+            className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[9999] p-2 sm:p-4 md:p-6"
             onClick={() => setShowPopupNotification(false)}
           >
             <motion.div
@@ -798,134 +1003,127 @@ export default function LiveReservationsPage() {
               animate={{ scale: 1, y: 0, opacity: 1 }}
               exit={{ scale: 0.8, y: -100, opacity: 0 }}
               transition={{ type: 'spring', damping: 18, stiffness: 100 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border-t-4 border-green-500"
+              className="bg-white rounded-lg sm:rounded-xl md:rounded-2xl shadow-2xl w-full max-w-xs sm:max-w-md md:max-w-2xl overflow-hidden border-t-4 border-green-500"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
-              <div className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 px-6 sm:px-8 py-6 sm:py-8">
-                <div className="flex items-center gap-4 mb-2">
+              <div className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 px-4 sm:px-6 md:px-8 py-4 sm:py-5 md:py-8">
+                <div className="flex items-center gap-2 sm:gap-3 md:gap-4 mb-1 sm:mb-2">
                   <motion.div
                     animate={{ scale: [1, 1.2, 1] }}
                     transition={{ duration: 0.6, repeat: Infinity }}
-                    className="w-4 h-4 bg-white rounded-full"
+                    className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 bg-white rounded-full"
                   ></motion.div>
-                  <h1 className="text-3xl sm:text-4xl font-bold text-white">Neue Reservierung!</h1>
+                  <h1 className="text-xl sm:text-2xl md:text-4xl font-bold text-white">Neue Reservierung!</h1>
                 </div>
-                <p className="text-green-100 text-xs sm:text-sm font-medium ml-8">Gerade eingegangen</p>
+                <p className="text-green-100 text-xs sm:text-sm md:text-base font-medium ml-5 sm:ml-6 md:ml-8">Gerade eingegangen</p>
               </div>
 
-              {/* Content */}
-              <div className="p-6 sm:p-8 space-y-6">
-                <div className="border-b-2 border-gray-200 pb-6">
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">
+              {/* Content - Scrollable on mobile */}
+              <div className="overflow-y-auto max-h-[60vh] sm:max-h-[70vh] md:max-h-none p-3 sm:p-4 md:p-8 space-y-3 sm:space-y-4 md:space-y-6">
+                {/* Guest Name */}
+                <div className="border-b-2 border-gray-200 pb-3 sm:pb-4 md:pb-6">
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 sm:mb-2">
                     Reservierung von
                   </p>
-                  <p className="text-4xl sm:text-5xl font-black text-gray-900">
+                  <p className="text-2xl sm:text-3xl md:text-5xl font-black text-gray-900 truncate">
                     {popupReservation.firstName}
                   </p>
-                  <p className="text-2xl sm:text-3xl font-bold text-gray-700">
+                  <p className="text-lg sm:text-xl md:text-3xl font-bold text-gray-700 truncate">
                     {popupReservation.lastName}
                   </p>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3 sm:gap-4">
-                  <div className="bg-blue-50 px-4 sm:px-6 py-4 sm:py-5 rounded-xl border-2 border-blue-200">
-                    <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-2">
-                      Datum
-                    </p>
-                    <p className="text-lg sm:text-2xl font-black text-blue-900">{popupReservation.date}</p>
+                {/* Key Details - Responsive Grid */}
+                <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4">
+                  <div className="bg-blue-50 px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-5 rounded-lg sm:rounded-xl border-2 border-blue-200">
+                    <p className="text-xs font-bold text-blue-600 uppercase tracking-wider mb-1">Datum</p>
+                    <p className="text-sm sm:text-base md:text-2xl font-black text-blue-900 truncate">{popupReservation.date}</p>
                   </div>
 
-                  <div className="bg-purple-50 px-4 sm:px-6 py-4 sm:py-5 rounded-xl border-2 border-purple-200">
-                    <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-2">
-                      Uhrzeit
-                    </p>
-                    <p className="text-lg sm:text-2xl font-black text-purple-900">{popupReservation.time}</p>
+                  <div className="bg-purple-50 px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-5 rounded-lg sm:rounded-xl border-2 border-purple-200">
+                    <p className="text-xs font-bold text-purple-600 uppercase tracking-wider mb-1">Uhrzeit</p>
+                    <p className="text-sm sm:text-base md:text-2xl font-black text-purple-900 truncate">{popupReservation.time}</p>
                   </div>
 
-                  <div className="bg-orange-50 px-4 sm:px-6 py-4 sm:py-5 rounded-xl border-2 border-orange-200">
-                    <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-2">
-                      Personen
-                    </p>
-                    <p className="text-lg sm:text-2xl font-black text-orange-900">{popupReservation.people || 1}</p>
+                  <div className="bg-orange-50 px-2 sm:px-4 md:px-6 py-2 sm:py-3 md:py-5 rounded-lg sm:rounded-xl border-2 border-orange-200">
+                    <p className="text-xs font-bold text-orange-600 uppercase tracking-wider mb-1">Gäste</p>
+                    <p className="text-sm sm:text-base md:text-2xl font-black text-orange-900">{popupReservation.people || 1}</p>
                   </div>
                 </div>
 
-                <div className="bg-slate-50 p-4 sm:p-6 rounded-xl border-2 border-slate-200 space-y-4">
-                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-                    Kontaktinformation
-                  </p>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-4 bg-white p-4 rounded-lg border border-slate-200">
-                      <Mail className="w-6 h-6 text-blue-600 flex-shrink-0" />
+                {/* Contact Information */}
+                <div className="bg-slate-50 p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border-2 border-slate-200 space-y-2 sm:space-y-3 md:space-y-4">
+                  <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Kontakt</p>
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="flex items-start gap-2 sm:gap-3 md:gap-4 bg-white p-2 sm:p-3 md:p-4 rounded-lg border border-slate-200">
+                      <Mail className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-blue-600 flex-shrink-0 mt-0.5" />
                       <div className="min-w-0">
-                        <p className="text-xs text-slate-500 mb-1">E-Mail</p>
-                        <p className="text-sm sm:text-lg font-semibold text-slate-900 break-all">
+                        <p className="text-xs text-slate-500 mb-0.5">E-Mail</p>
+                        <p className="text-xs sm:text-sm md:text-base font-semibold text-slate-900 break-all">
                           {popupReservation.email}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 bg-white p-4 rounded-lg border border-slate-200">
-                      <Phone className="w-6 h-6 text-green-600 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-slate-500 mb-1">Telefon</p>
-                        <p className="text-sm sm:text-lg font-semibold text-slate-900">{popupReservation.phone}</p>
+                    <div className="flex items-start gap-2 sm:gap-3 md:gap-4 bg-white p-2 sm:p-3 md:p-4 rounded-lg border border-slate-200">
+                      <Phone className="w-4 h-4 sm:w-5 sm:h-5 md:w-6 md:h-6 text-green-600 flex-shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <p className="text-xs text-slate-500 mb-0.5">Telefon</p>
+                        <p className="text-xs sm:text-sm md:text-base font-semibold text-slate-900">{popupReservation.phone}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
+                {/* Area */}
                 {popupReservation.bereich && (
-                  <div className="bg-indigo-50 p-4 sm:p-6 rounded-xl border-2 border-indigo-200">
-                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-3">
-                      Reservierungsbereich
-                    </p>
-                    <p className="text-xl sm:text-2xl font-black text-indigo-900">
+                  <div className="bg-indigo-50 p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border-2 border-indigo-200">
+                    <p className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">Bereich</p>
+                    <p className="text-sm sm:text-base md:text-2xl font-black text-indigo-900">
                       {popupReservation.bereich}
                     </p>
                   </div>
                 )}
 
+                {/* Notes */}
                 {popupReservation.message && (
-                  <div className="bg-amber-50 p-4 sm:p-6 rounded-xl border-2 border-amber-200">
-                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3">
-                      Kundennoten
-                    </p>
-                    <p className="text-sm sm:text-lg text-amber-900 leading-relaxed">
+                  <div className="bg-amber-50 p-3 sm:p-4 md:p-6 rounded-lg sm:rounded-xl border-2 border-amber-200">
+                    <p className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-2">Notizen</p>
+                    <p className="text-xs sm:text-sm md:text-base text-amber-900 leading-relaxed">
                       {popupReservation.message}
                     </p>
                   </div>
                 )}
               </div>
 
-              {/* Action Buttons */}
-              <div className="bg-gray-50 px-6 sm:px-8 py-4 sm:py-6 border-t-2 border-gray-200 flex gap-3 sm:gap-4">
+              {/* Action Buttons - Responsive */}
+              <div className="bg-gray-50 px-3 sm:px-4 md:px-8 py-3 sm:py-4 md:py-6 border-t-2 border-gray-200 flex flex-col sm:flex-row gap-2 sm:gap-3 md:gap-4">
                 <Button
                   onClick={() => {
                     setShowPopupNotification(false);
                     setSelectedReservation(popupReservation);
                     setActiveTab('pending');
                   }}
-                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-3 sm:py-4 rounded-xl text-base sm:text-lg"
+                  className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold py-2 sm:py-3 md:py-4 rounded-lg md:rounded-xl text-xs sm:text-sm md:text-lg"
                 >
-                  <Check className="w-5 h-5 mr-2 inline" />
+                  <Check className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 mr-1 sm:mr-2 inline" />
                   Anschauen
                 </Button>
                 <Button
                   onClick={() => setShowPopupNotification(false)}
-                  className="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-3 sm:py-4 rounded-xl text-base sm:text-lg"
+                  className="flex-1 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 sm:py-3 md:py-4 rounded-lg md:rounded-xl text-xs sm:text-sm md:text-lg"
                 >
-                  <X className="w-5 h-5 mr-2 inline" />
+                  <X className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 mr-1 sm:mr-2 inline" />
                   Schließen
                 </Button>
               </div>
 
-              {/* Auto-close Progress Bar */}
+              {/* Auto-close Progress Bar - 10 seconds */}
               <motion.div
                 initial={{ scaleX: 1 }}
                 animate={{ scaleX: 0 }}
-                transition={{ duration: 8, ease: 'linear' }}
-                className="h-2 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 origin-left"
+                transition={{ duration: 10, ease: 'linear' }}
+                className="h-1 md:h-2 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 origin-left"
               ></motion.div>
             </motion.div>
           </motion.div>
