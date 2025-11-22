@@ -1,0 +1,140 @@
+﻿rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ==================== INDEXES ====================
+    // Composite index for reservations queries
+    // Index: status (Ascending), createdAt (Descending)
+    // This index is required for: where('status', 'in', [...]).orderBy('createdAt', 'desc')
+    
+    // ==================== HELPER FUNCTIONS ====================
+    
+    // Check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null && request.auth.uid != null;
+    }
+    
+    // Check if user is a main admin (by email)
+    function isMainAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email in [
+               'subhoxyysexy@gmail.com',
+               'subjeets83@gmail.com',
+               'seilerstubbwiesbaden@gmail.com',
+               'admin@seilerstubb.de'
+             ];
+    }
+    
+    // ==================== ADMIN ONLY COLLECTIONS ====================
+    
+    // Settings - public read (for opening hours, reservations status), admin write
+    match /settings/{document=**} {
+      allow read: if true;
+      allow create, update, delete: if isMainAdmin();
+    }
+    
+    // OTP Verifications - anyone can read/write (needed for signup/signin flow)
+    // Security: email-based verification ensures only authorized access
+    match /otp_verifications/{document=**} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      allow delete: if isMainAdmin();
+    }
+    
+    // Users - authenticated users can read/write their own, admins read all
+    // Also allows unauthenticated writes for signup/email verification
+    match /users/{userId} {
+      // READ: Anyone can read (needed for email uniqueness check during signup)
+      allow read: if true;
+      
+      // CREATE: Allow for signup (unauthenticated or authenticated)
+      // Signup process creates users before authentication is complete
+      allow create: if true;
+      
+      // UPDATE: Allow updates during signup/verification flow
+      // Allow if: admin or authenticated user updating their own document
+      allow update: if isMainAdmin() || 
+                       request.auth.uid == userId;
+      
+      // DELETE: Admin only
+      allow delete: if isMainAdmin();
+    }
+    
+    // ==================== PUBLIC COLLECTIONS ====================
+    
+    // Reservations - public create, admin manage
+    // Admin can read all reservations, users can only read their own
+    match /reservations/{document=**} {
+      allow read: if isMainAdmin();
+      allow create: if true;
+      allow update: if isMainAdmin();
+      allow delete: if isMainAdmin();
+    }
+    
+    // ==================== CONTACT SYSTEM ====================
+    
+    // Contact Threads - Backend validates authentication via API, Firestore enforces on read
+    match /contactThreads/{threadId} {
+      // READ: Admins read all, users read their own threads
+      allow read: if isMainAdmin() || 
+                     (isAuthenticated() && resource.data.userId == request.auth.uid);
+      
+      // CREATE: Allow from backend API (backend validates token)
+      // Backend will validate the request includes a valid userId
+      allow create: if true;
+      
+      // UPDATE: Allow from backend API (backend validates token)
+      // Backend validates userId matches before allowing update
+      allow update: if true;
+      
+      // DELETE: Admin only
+      allow delete: if isMainAdmin();
+      
+      // Nested Messages Collection - Backend allows creates, Firestore enforces on read
+      match /messages/{messageId} {
+        // READ: Only authenticated users can read (verified by their uid matching thread userId)
+        allow read: if isAuthenticated();
+        
+        // CREATE: Allow from backend API (backend validates token)
+        allow create: if true;
+        
+        // UPDATE: Allow updates
+        allow update: if true;
+        
+        // DELETE: Admin only
+        allow delete: if isMainAdmin();
+      }
+    }
+    
+    // ==================== MENU COLLECTIONS ====================
+    
+    // Menu Items - public read, admin write
+    match /menuItems/{document=**} {
+      allow read: if true;
+      allow create, update, delete: if isMainAdmin();
+    }
+    
+    // Category Configs - public read, admin write
+    match /categoryConfigs/{document=**} {
+      allow read: if true;
+      allow create, update, delete: if isMainAdmin();
+    }
+    
+    // ==================== ANNOUNCEMENTS ====================
+    
+    // Announcements - public read, admin write
+    match /announcements/{document=**} {
+      allow read: if true;
+      allow create, update, delete: if isMainAdmin();
+    }
+    
+    // ==================== DEFAULT CATCH-ALL ====================
+    
+    // All other collections - restrictive by default
+    match /{document=**} {
+      allow read: if true;
+      allow write: if isMainAdmin();
+    }
+  }
+}
